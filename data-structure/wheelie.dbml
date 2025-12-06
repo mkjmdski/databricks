@@ -1,0 +1,201 @@
+Table "address" {
+  "address_id" int(10) [pk, not null, increment]
+  "address" varchar(50) [default: NULL]
+  "address2" varchar(50) [default: NULL]
+  "city_id" int(10) [default: NULL]
+  "postal_code" varchar(10) [default: NULL]
+  "last_update" datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (address, city_id, postal_code) [type: btree, unique, name: "address_address_IDX"]
+    city_id [name: "address_FK"]
+  }
+}
+
+Table "car" {
+  "car_id" int(10) [pk, not null, increment]
+  "producer" varchar(50) [default: NULL]
+  "model" varchar(50) [default: NULL]
+  "rental_rate" decimal(12,2) [default: NULL]
+  "create_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
+  "last_update" datetime [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table "city" {
+  "city_id" int(10) [pk, not null, increment]
+  "city" varchar(50) [default: NULL]
+  "country_id" int(10) [default: NULL]
+
+  Indexes {
+    (city, country_id) [type: btree, unique, name: "city_city_IDX"]
+    country_id [name: "city_FK"]
+  }
+}
+
+Table "country" {
+  "country_id" int(10) [pk, not null, increment]
+  "country" varchar(50) [default: NULL]
+
+  Indexes {
+    country [type: btree, unique, name: "country_country_IDX"]
+  }
+}
+
+Table "customer" {
+  "customer_id" int(10) [pk, not null, increment]
+  "first_name" varchar(50) [default: NULL]
+  "last_name" varchar(50) [default: NULL]
+  "address_id" int(10) [default: NULL]
+  "email" varchar(50) [default: NULL]
+  "birth_date" date [default: NULL]
+  "create_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
+  "last_update" datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (first_name, last_name, address_id) [type: btree, unique, name: "customer_first_name_IDX"]
+    address_id [name: "customer_FK"]
+  }
+}
+
+Table "equipment" {
+  "equipment_id" int(10) [pk, not null, increment]
+  "name" varchar(50) [default: NULL]
+  "type" varchar(50) [default: NULL]
+  "version" varchar(50) [default: NULL]
+  "create_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
+  "last_update" datetime [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table "inventory" {
+  "inventory_id" int(10) [pk, not null, increment]
+  "car_id" int(10) [default: NULL]
+  "production_year" int(4) [default: NULL]
+  "fuel_type" varchar(15) [default: NULL]
+  "store_id" int(10) [default: NULL]
+  "purchase_price" decimal(18,2) [default: NULL]
+  "sell_price" decimal(18,2) [default: NULL]
+  "create_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
+  "last_update" datetime [default: `CURRENT_TIMESTAMP`]
+  "license_plates" varchar(10) [default: NULL]
+
+  Indexes {
+    car_id [name: "inventory_FK"]
+    store_id [name: "inventory_FK_1"]
+  }
+}
+
+Table "inventory_equipment" {
+  "id" int(11) [pk, not null, increment]
+  "inventory_id" int(10) [default: NULL]
+  "equipment_id" int(10) [default: NULL]
+
+  Indexes {
+    inventory_id [name: "inventory_equipment_FK"]
+    equipment_id [name: "inventory_equipment_FK_1"]
+  }
+}
+
+Table "payment" {
+  "payment_id" int(10) [pk, not null, increment]
+  "customer_id" int(10) [default: NULL]
+  "rental_id" int(10) [default: NULL]
+  "amount" decimal(12,2) [default: NULL]
+  "payment_date" date [default: NULL]
+  "last_update" datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    rental_id [name: "payment_FK"]
+    customer_id [name: "payment_FK_1"]
+  }
+}
+
+Table "rental" {
+  "rental_id" int(10) [pk, not null, increment]
+  "rental_rate" decimal(12,2) [default: NULL]
+  "customer_id" int(10) [default: NULL]
+  "inventory_id" int(10) [default: NULL]
+  "staff_id" int(10) [default: NULL]
+  "rental_date" date [default: NULL]
+  "return_date" date [default: NULL]
+  "payment_deadline" date [default: NULL]
+  "create_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
+  "technical_timestamp" datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    customer_id [name: "rental_FK"]
+    inventory_id [name: "rental_FK_1"]
+    staff_id [name: "rental_FK_2"]
+  }
+}
+
+Table "service" {
+  "service_id" int(10) [pk, not null, increment]
+  "inventory_id" int(10) [not null]
+  "service_type" varchar(100) [not null]
+  "service_date" date [not null]
+  "service_cost" decimal(18,4) [not null]
+
+  Indexes {
+    (inventory_id, service_type, service_date) [type: btree, unique, name: "service_inventory_id_IDX"]
+  }
+}
+
+Table "staff" {
+  "staff_id" int(10) [pk, not null, increment]
+  "first_name" varchar(50) [default: NULL]
+  "last_name" varchar(50) [default: NULL]
+  "store_id" int(10) [default: NULL]
+  "address_id" int(10) [default: NULL]
+  "email" varchar(50) [default: NULL]
+  "manager_id" int(10) [default: NULL]
+  "hired_date" date [default: NULL]
+  "last_update" datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    store_id [name: "staff_FK"]
+    manager_id [name: "staff_FK_1"]
+    address_id [name: "staff_FK_2"]
+  }
+}
+
+Table "store" {
+  "store_id" int(10) [pk, not null, increment]
+  "store_manager_id" int(10) [default: NULL]
+  "address_id" int(10) [default: NULL]
+  "last_update" datetime [not null, default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    address_id [name: "store_FK"]
+    store_manager_id [name: "store_FK_1"]
+  }
+}
+
+Ref "address_FK":"city"."city_id" < "address"."city_id" [delete: cascade]
+
+Ref "city_FK":"country"."country_id" < "city"."country_id"
+
+Ref "customer_FK":"address"."address_id" < "customer"."address_id" [delete: cascade]
+
+Ref "inventory_FK":"car"."car_id" < "inventory"."car_id"
+
+Ref "inventory_FK_1":"store"."store_id" < "inventory"."store_id"
+
+Ref "inventory_equipment_FK":"inventory"."inventory_id" < "inventory_equipment"."inventory_id"
+
+Ref "inventory_equipment_FK_1":"equipment"."equipment_id" < "inventory_equipment"."equipment_id"
+
+Ref "rental_FK":"customer"."customer_id" < "rental"."customer_id" [delete: cascade]
+
+Ref "rental_FK_1":"inventory"."inventory_id" < "rental"."inventory_id"
+
+Ref "rental_FK_2":"staff"."staff_id" < "rental"."staff_id"
+
+Ref "service_FK":"inventory"."inventory_id" < "service"."inventory_id"
+
+Ref "staff_FK":"store"."store_id" < "staff"."store_id"
+
+Ref "staff_FK_2":"address"."address_id" < "staff"."address_id"
+
+Ref "store_FK":"address"."address_id" < "store"."address_id"
+
+Ref "store_FK_1":"staff"."staff_id" < "store"."store_manager_id"
