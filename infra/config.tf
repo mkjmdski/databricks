@@ -1,18 +1,18 @@
 # https://docs.databricks.com/aws/en/dev-tools/terraform/
 terraform {
-    backend "remote" {
-        hostname = "app.terraform.io"
-        organization = "uam"
+  backend "remote" {
+    hostname     = "app.terraform.io"
+    organization = "uam"
 
-        workspaces {
-        name = "databricks"
-        }
+    workspaces {
+      name = "databricks"
     }
+  }
 
-    required_providers {
-        databricks = {
-            source  = "databricks/databricks"
-            version = "1.99.0"
-        }
+  required_providers {
+    databricks = {
+      source  = "databricks/databricks"
+      version = "1.99.0"
     }
+  }
 }
