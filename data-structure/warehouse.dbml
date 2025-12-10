@@ -39,10 +39,6 @@ Table "fact_rental" {
   "rental_rate" decimal(12,2) [not null, note: "Rental rate charged for this transaction"]
   "rental_duration_days" int(5) [note: "Calculated: return_date - rental_date in days (NULL if not returned)"]
 
-  // Audit columns
-  "etl_created_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-  "etl_updated_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-
   Note: '''
   FACT TABLE - Central transaction table for rental events.
   Grain: One row per rental transaction.
@@ -85,10 +81,6 @@ Table "fact_service" {
 
   // Degenerate Dimensions
   "service_type" varchar(100) [not null, note: "Type of service (oil change, tire rotation, repair, etc.)"]
-
-  // Audit columns
-  "etl_created_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-  "etl_updated_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
 
   Note: '''
   FACT TABLE - Service events for car maintenance.
@@ -140,10 +132,6 @@ Table "dim_customer" {
   "effective_date" datetime [not null, note: "Start date when this version became effective"]
   "end_date" datetime [note: "End date when this version expired (NULL for current record)"]
   "is_current" boolean [not null, default: true, note: "Flag indicating current/active record"]
-
-  // Audit columns
-  "etl_created_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-  "etl_updated_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
 
   Note: '''
   DIMENSION TABLE - Customer demographics and location.
@@ -202,10 +190,6 @@ Table "dim_car" {
   "purchase_price" decimal(18,2) [note: "Original purchase cost of the car"]
   "total_revenue" decimal(18,2) [note: "Pre-aggregated: SUM of all rental_rate from fact_rental for this car"]
   "total_service_cost" decimal(18,2) [note: "Pre-aggregated: SUM of all service_cost from fact_service for this car"]
-
-  // Audit columns
-  "etl_created_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-  "etl_updated_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
 
   Note: '''
   DIMENSION TABLE - Car inventory with model details and aggregated metrics.
@@ -266,10 +250,6 @@ Table "dim_staff" {
   "manager_staff_key" int(10) [note: "FK to dim_staff - direct manager (self-referencing)"]
   "manager_name" varchar(100) [note: "Denormalized manager full name for reporting convenience"]
 
-  // Audit columns
-  "etl_created_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-  "etl_updated_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-
   Note: '''
   DIMENSION TABLE - Staff employee information.
 
@@ -318,10 +298,6 @@ Table "dim_store" {
   "address" varchar(100) [note: "Full street address"]
   "postal_code" varchar(10) [note: "Postal/ZIP code"]
 
-  // Audit columns
-  "etl_created_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-  "etl_updated_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-
   Note: '''
   DIMENSION TABLE - Store locations.
 
@@ -363,10 +339,6 @@ Table "dim_payment" {
   "payment_deadline" date [not null, note: "Deadline for payment (originally from rental)"]
   "is_late_payment" boolean [not null, note: "Pre-calculated: TRUE if payment_date > payment_deadline"]
   "days_overdue" int(5) [note: "Pre-calculated: payment_date - payment_deadline (negative=early, positive=late)"]
-
-  // Audit columns
-  "etl_created_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-  "etl_updated_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
 
   Note: '''
   DIMENSION TABLE - Payment transaction details.
@@ -429,9 +401,6 @@ Table "dim_date" {
   "is_covid" boolean [not null, note: "TRUE for dates from 2020-03-01 to 2022-06-30"]
   "is_post_covid" boolean [not null, note: "TRUE for dates after 2022-06-30"]
 
-  // Audit columns
-  "etl_created_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-
   Note: '''
   DIMENSION TABLE - Date calendar with hierarchies and COVID period flags.
 
@@ -492,10 +461,6 @@ Table "dim_equipment" {
   "name" varchar(50) [not null, note: "Equipment name (GPS, Leather Seats, Sunroof, etc.)"]
   "type" varchar(50) [note: "Category: Safety, Comfort, Technology, Performance"]
 
-  // Audit columns
-  "etl_created_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-  "etl_updated_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
-
   Note: '''
   DIMENSION TABLE - Equipment catalog.
 
@@ -540,9 +505,6 @@ Table "dim_equipment" {
 Table "bridge_car_equipment" {
   "car_key" int(10) [not null, note: "FK to dim_car"]
   "equipment_key" int(10) [not null, note: "FK to dim_equipment"]
-
-  // Audit columns
-  "etl_created_date" datetime [not null, default: `CURRENT_TIMESTAMP`]
 
   Note: '''
   BRIDGE TABLE - Resolves many-to-many relationship between cars and equipment.
@@ -640,6 +602,19 @@ Ref "bridge_to_dim_equipment": "dim_equipment"."equipment_key" < "bridge_car_equ
 // =============================================================================
 // ETL PROCESSING NOTES
 // =============================================================================
+//
+// INCREMENTAL LOADING STRATEGY:
+// This warehouse uses source system timestamps (create_date, last_update)
+// for incremental loading instead of ETL audit columns.
+//
+// Recommended: Use a watermark table to track last processed timestamps:
+//
+// CREATE TABLE etl_watermarks (
+//   table_name VARCHAR(50) PRIMARY KEY,
+//   last_processed_timestamp DATETIME,
+//   last_processed_id INT,
+//   last_run_timestamp DATETIME
+// );
 //
 // LOAD ORDER:
 // 1. dim_date (static - load once, 2018-2030)
