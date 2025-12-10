@@ -8,7 +8,11 @@ terraform code configured on the remote workspace at https://app.terraform.io/ap
 
 python notebooks provisioned by the terraform
 
-# diagram for data
+## data-structure
 
-* https://dbdiagram.io/d/wheelie_structure-692b0170d6676488bae42f48
+DBMLs that represent different layers of data
 
+# sources
+
+* [https://dbdiagram.io/d/wheelie_structure-692b0170d6676488bae42f48](original dbml)
+* [https://rihab-feki.medium.com/building-a-modern-data-warehouse-from-scratch-d18d346a7118](useful article on medium)

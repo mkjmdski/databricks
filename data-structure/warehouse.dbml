@@ -1,0 +1,729 @@
+// =============================================================================
+// DATA WAREHOUSE SCHEMA FOR WHEELIE CAR RENTAL BUSINESS
+// =============================================================================
+// This schema represents a dimensional model (star schema with bridge table)
+// designed for analytical queries on car rental operations.
+//
+// Design Pattern: Star Schema with Bridge Table
+// - 2 Fact Tables: fact_rental (grain: one row per rental), fact_service (grain: one row per service event)
+// - 7 Dimension Tables: dim_customer, dim_car, dim_staff, dim_store, dim_payment, dim_date, dim_equipment
+// - 1 Bridge Table: bridge_car_equipment (resolves many-to-many between car and equipment)
+//
+// SCD Type 2 Implementation:
+// - dim_customer: Tracks historical changes in customer address (for academic demonstration)
+//
+// Shared Dimensions:
+// - dim_date: Shared by fact_rental (rental_date, return_date) and fact_service (service_date)
+// - dim_car: Shared by fact_rental, fact_service, and bridge_car_equipment
+// - dim_store: Shared by fact_rental and fact_service
+// =============================================================================
+
+// =============================================================================
+// FACT TABLES
+// =============================================================================
+
+Table "fact_rental" {
+  "rental_key" int(10) [pk, not null, increment]
+  "rental_id" int(10) [not null, note: "Business key from source system"]
+
+  // Foreign Keys to Dimensions
+  "customer_key" int(10) [not null, note: "FK to dim_customer (surrogate key for SCD Type 2)"]
+  "car_key" int(10) [not null, note: "FK to dim_car"]
+  "staff_key" int(10) [not null, note: "FK to dim_staff"]
+  "store_key" int(10) [not null, note: "FK to dim_store (rental location)"]
+  "payment_key" int(10) [note: "FK to dim_payment (nullable if payment not yet made)"]
+  "rental_date_key" int(10) [not null, note: "FK to dim_date for rental date"]
+  "return_date_key" int(10) [note: "FK to dim_date for return date (nullable if not yet returned)"]
+
+  // Measures (Numeric Facts)
+  "rental_rate" decimal(12,2) [not null, note: "Rental rate charged for this transaction"]
+  "rental_duration_days" int(5) [note: "Calculated: return_date - rental_date in days (NULL if not returned)"]
+
+  Note: '''
+  FACT TABLE - Central transaction table for rental events.
+  Grain: One row per rental transaction.
+
+  PURPOSE: Stores measurable rental events with foreign keys to all relevant dimensions.
+  Supports analytical queries:
+  - Total rental revenue by customer, car type, store, time period
+  - Average rental duration by car model
+  - Rental performance by staff member
+  - Store rankings and geographic analysis
+
+  DESIGN NOTES:
+  - Uses surrogate key (customer_key) for SCD Type 2 support
+  - return_date_key and rental_duration_days are nullable for active rentals
+  - payment_key is nullable because payment may not be made at rental time
+  - store_key directly references rental location for simpler geographic queries
+  '''
+
+  Indexes {
+    rental_id [name: "fact_rental_business_key_IDX"]
+    customer_key [name: "fact_rental_customer_IDX"]
+    car_key [name: "fact_rental_car_IDX"]
+    staff_key [name: "fact_rental_staff_IDX"]
+    store_key [name: "fact_rental_store_IDX"]
+    rental_date_key [name: "fact_rental_date_IDX"]
+  }
+}
+
+Table "fact_service" {
+  "service_key" int(10) [pk, not null, increment]
+  "service_id" int(10) [not null, note: "Business key from source system"]
+
+  // Foreign Keys to Dimensions
+  "car_key" int(10) [not null, note: "FK to dim_car (which car was serviced)"]
+  "service_date_key" int(10) [not null, note: "FK to dim_date for service date"]
+  "store_key" int(10) [not null, note: "FK to dim_store (where service was performed)"]
+
+  // Measures (Numeric Facts)
+  "service_cost" decimal(18,4) [not null, note: "Cost of this service event"]
+
+  // Degenerate Dimensions
+  "service_type" varchar(100) [not null, note: "Type of service (oil change, tire rotation, repair, etc.)"]
+
+  Note: '''
+  FACT TABLE - Service events for car maintenance.
+  Grain: One row per service event.
+
+  PURPOSE: Tracks all maintenance and repair events for cars in inventory.
+  Required for service cost analysis that was missing from aggregated dim_car approach.
+
+  Supports analytical queries:
+  - Service costs over time (monthly, yearly trends)
+  - Service frequency by car/model/brand
+  - Service cost comparison (current vs previous year KPIs)
+  - Ranking of cars/brands by service costs
+
+  DESIGN RATIONALE:
+  - Separate fact table needed because dim_car aggregates (total_service_cost)
+    lack temporal detail required for "service costs per month" analysis
+  - Service date is critical dimension for trend analysis
+  - service_type as degenerate dimension allows service categorization
+  '''
+
+  Indexes {
+    service_id [name: "fact_service_business_key_IDX"]
+    car_key [name: "fact_service_car_IDX"]
+    service_date_key [name: "fact_service_date_IDX"]
+    store_key [name: "fact_service_store_IDX"]
+  }
+}
+
+// =============================================================================
+// DIMENSION TABLES
+// =============================================================================
+
+Table "dim_customer" {
+  "customer_key" int(10) [pk, not null, increment, note: "Surrogate key for SCD Type 2"]
+  "customer_id" int(10) [not null, note: "Business key from source system (natural key)"]
+
+  // Customer Personal Information
+  "first_name" varchar(50)
+  "last_name" varchar(50)
+  "email" varchar(50)
+  "birth_date" date [note: "Used to calculate customer age for demographic analysis"]
+
+  // Address Information (Denormalized from address, city, country tables)
+  "city" varchar(50) [note: "Customer's city - used for 'where customers come from' analysis"]
+  "country" varchar(50) [note: "Customer's country"]
+
+  // SCD Type 2 Attributes
+  "effective_date" datetime [not null, note: "Start date when this version became effective"]
+  "end_date" datetime [note: "End date when this version expired (NULL for current record)"]
+  "is_current" boolean [not null, default: true, note: "Flag indicating current/active record"]
+
+  Note: '''
+  DIMENSION TABLE - Customer demographics and location.
+
+  PURPOSE: Provides descriptive context about customers who rent cars.
+  Supports customer profiling and demographic analysis for marketing campaigns.
+
+  SCD TYPE 2 IMPLEMENTATION:
+  Tracks historical changes in customer address (when customers move).
+  - customer_id: natural/business key (same across versions)
+  - customer_key: surrogate key (unique for each version)
+  - effective_date/end_date: validity period for this version
+  - is_current: flag for quick identification of active record
+
+  ACADEMIC NOTE:
+  SCD Type 2 is implemented here as a best practice demonstration for
+  academic purposes. For the specific business questions in this project,
+  SCD Type 1 (current values only) would be sufficient since no queries
+  require historical customer addresses at the time of rental.
+
+  EXAMPLE:
+  Customer #123 moves from Warsaw to Krakow:
+  | customer_key | customer_id | city     | effective_date | end_date   | is_current |
+  |--------------|-------------|----------|----------------|------------|------------|
+  | 1            | 123         | Warsaw   | 2022-01-01     | 2023-06-15 | FALSE      |
+  | 2            | 123         | Krakow   | 2023-06-15     | NULL       | TRUE       |
+
+  Business queries supported:
+  - Customer age distribution (birth_date)
+  - Geographic origin of customers (city, country)
+  - Returning customer analysis (COUNT rentals per customer_id)
+  '''
+
+  Indexes {
+    customer_id [name: "dim_customer_business_key_IDX"]
+    (customer_id, is_current) [name: "dim_customer_current_IDX"]
+    effective_date [name: "dim_customer_effective_date_IDX"]
+  }
+}
+
+Table "dim_car" {
+  "car_key" int(10) [pk, not null, increment, note: "Surrogate key"]
+  "inventory_id" int(10) [not null, note: "Business key from source inventory table"]
+
+  // Car Model Information
+  "producer" varchar(50) [note: "Car manufacturer/brand - used for brand analysis"]
+  "model" varchar(50) [note: "Car model name"]
+
+  // Inventory Specific Information
+  "production_year" int(4) [note: "Year of production - used to calculate car age"]
+  "fuel_type" varchar(15) [note: "Type of fuel (petrol, diesel, electric, hybrid)"]
+  "license_plates" varchar(10) [note: "Physical identification of the car"]
+  "store_key" int(10) [note: "FK to dim_store - home location of this car"]
+
+  // Financial Metrics (for profitability analysis)
+  "purchase_price" decimal(18,2) [note: "Original purchase cost of the car"]
+  "total_revenue" decimal(18,2) [note: "Pre-aggregated: SUM of all rental_rate from fact_rental for this car"]
+  "total_service_cost" decimal(18,2) [note: "Pre-aggregated: SUM of all service_cost from fact_service for this car"]
+
+  Note: '''
+  DIMENSION TABLE - Car inventory with model details and aggregated metrics.
+
+  PURPOSE: Provides descriptive context about cars available for rental.
+  Combines car model attributes with inventory-specific data and pre-aggregated
+  financial metrics for performance analysis.
+
+  KEY ATTRIBUTES:
+  - producer/model: Brand and model for market analysis
+  - production_year: Calculate car age (YEAR(TODAY) - production_year)
+  - fuel_type: Filter by fuel preference
+  - license_plates: Physical car identification
+  - store_key: Home location (car always returns here)
+
+  PRE-AGGREGATED METRICS:
+  These are calculated during ETL for performance optimization:
+  - total_revenue: SUM(fact_rental.rental_rate) WHERE car_key = this car
+  - total_service_cost: SUM(fact_service.service_cost) WHERE car_key = this car
+
+  Profitability can be calculated as:
+  Net_Profit = total_revenue - purchase_price - total_service_cost
+
+  DESIGN NOTES:
+  - SCD Type 1: Overwrites on change (no history tracking)
+  - Equipment handled via bridge_car_equipment (many-to-many)
+  - Aggregates updated during ETL when new rentals/services occur
+  - Aggregates are for performance; detailed data remains in fact tables
+
+  Business queries supported:
+  - Which cars generate most profit? (revenue - purchase - service)
+  - Least rented cars (COUNT fact_rental BY car_key ASC)
+  - Service costs by brand (SUM total_service_cost BY producer)
+  - Car age analysis (production_year)
+  '''
+
+  Indexes {
+    inventory_id [name: "dim_car_business_key_IDX", unique]
+    producer [name: "dim_car_producer_IDX"]
+    store_key [name: "dim_car_store_IDX"]
+  }
+}
+
+Table "dim_staff" {
+  "staff_key" int(10) [pk, not null, increment, note: "Primary key (natural key, same as staff_id)"]
+  "staff_id" int(10) [not null, note: "Business key from source system"]
+
+  // Staff Personal Information
+  "first_name" varchar(50)
+  "last_name" varchar(50)
+  "email" varchar(50)
+  "hired_date" date [note: "Date when employee was hired"]
+
+  // Store Assignment
+  "store_key" int(10) [not null, note: "FK to dim_store - where this employee works"]
+
+  // Management Hierarchy
+  "manager_staff_key" int(10) [note: "FK to dim_staff - direct manager (self-referencing)"]
+  "manager_name" varchar(100) [note: "Denormalized manager full name for reporting convenience"]
+
+  Note: '''
+  DIMENSION TABLE - Staff employee information.
+
+  PURPOSE: Provides context about employees who process rental transactions.
+  Required for "breakdown by salesperson" analysis in operational reporting.
+
+  KEY ATTRIBUTES:
+  - staff_id: Business key from source system
+  - store_key: Current store assignment
+  - manager_staff_key: Self-referencing FK for organizational hierarchy
+  - manager_name: Denormalized for reporting (avoids self-join in queries)
+
+  DESIGN NOTES:
+  - SCD Type 1: Overwrites on change (no history tracking)
+  - Simplified from original design (no personal address, no SCD Type 2)
+  - Management hierarchy supports organizational reporting
+  - staff_key = staff_id (simple primary key, not surrogate for SCD)
+
+  MANAGEMENT HIERARCHY EXAMPLE:
+  | staff_key | staff_id | name         | manager_staff_key | manager_name  |
+  |-----------|----------|--------------|-------------------|---------------|
+  | 1         | 1        | John Smith   | NULL              | NULL          | (CEO)
+  | 2         | 2        | Anna Kowal   | 1                 | John Smith    |
+  | 3         | 3        | Tom Nowak    | 2                 | Anna Kowal    |
+
+  Business queries supported:
+  - Revenue breakdown by salesperson
+  - Store staffing analysis
+  - Management hierarchy reporting
+  '''
+
+  Indexes {
+    staff_id [name: "dim_staff_business_key_IDX", unique]
+    store_key [name: "dim_staff_store_IDX"]
+    manager_staff_key [name: "dim_staff_manager_IDX"]
+  }
+}
+
+Table "dim_store" {
+  "store_key" int(10) [pk, not null, increment, note: "Primary key (natural key, same as store_id)"]
+  "store_id" int(10) [not null, note: "Business key from source system"]
+
+  // Store Location Information
+  "city" varchar(50) [not null, note: "City where store is located - key for geographic analysis"]
+  "country" varchar(50) [not null, note: "Country where store is located"]
+  "address" varchar(100) [note: "Full street address"]
+  "postal_code" varchar(10) [note: "Postal/ZIP code"]
+
+  Note: '''
+  DIMENSION TABLE - Store locations.
+
+  PURPOSE: Centralized location data for all stores/branches.
+  Shared dimension used by fact_rental, fact_service, dim_car, and dim_staff.
+
+  KEY ATTRIBUTES:
+  - city: Primary geographic dimension for analysis
+  - country: Higher-level geographic grouping
+  - address: Full address for operational reports
+
+  DESIGN RATIONALE:
+  Separate table (vs embedding in other dimensions) because:
+  - Multiple entities reference stores (cars, staff, rentals, services)
+  - Centralized location data ensures consistency
+  - Easy to add store attributes (region, size, manager, etc.)
+  - Supports geographic hierarchy (country → city → store)
+
+  Business queries supported:
+  - Rental distribution by city
+  - Store ranking by revenue
+  - Geographic analysis of late payments ("where do delays occur?")
+  - Service costs by location
+  '''
+
+  Indexes {
+    store_id [name: "dim_store_business_key_IDX", unique]
+    city [name: "dim_store_city_IDX"]
+  }
+}
+
+Table "dim_payment" {
+  "payment_key" int(10) [pk, not null, increment, note: "Surrogate key"]
+  "payment_id" int(10) [not null, note: "Business key from source system"]
+
+  // Payment Information
+  "amount" decimal(12,2) [not null, note: "Payment amount"]
+  "payment_date" date [not null, note: "Date when payment was made"]
+  "payment_deadline" date [not null, note: "Deadline for payment (originally from rental)"]
+  "is_late_payment" boolean [not null, note: "Pre-calculated: TRUE if payment_date > payment_deadline"]
+  "days_overdue" int(5) [note: "Pre-calculated: payment_date - payment_deadline (negative=early, positive=late)"]
+
+  Note: '''
+  DIMENSION TABLE - Payment transaction details.
+
+  PURPOSE: Stores payment information as a separate dimension to support
+  late payment analysis and allow rentals without payments.
+
+  KEY ATTRIBUTES:
+  - amount: Payment amount
+  - payment_date: When customer paid
+  - payment_deadline: When payment was due
+  - is_late_payment: Pre-calculated flag for filtering
+  - days_overdue: Pre-calculated metric (negative if paid early)
+
+  DESIGN RATIONALE:
+  Separate dimension (not embedded in fact_rental) because:
+  1. Rentals may not have payments yet (pending) → nullable FK in fact
+  2. Supports future multiple payments per rental (installments)
+  3. Payment analysis is a distinct business perspective
+  4. Pre-calculated metrics (is_late, days_overdue) improve query performance
+
+  PRE-CALCULATED FIELDS:
+  Calculated during ETL for performance:
+  - is_late_payment = (payment_date > payment_deadline)
+  - days_overdue = DATEDIFF(day, payment_deadline, payment_date)
+
+  Business queries supported:
+  - Late payment analysis by customer/store/time
+  - Percentage of on-time payments
+  - Average days overdue
+  - Customer payment behavior patterns
+  '''
+
+  Indexes {
+    payment_id [name: "dim_payment_business_key_IDX", unique]
+    payment_date [name: "dim_payment_date_IDX"]
+    is_late_payment [name: "dim_payment_late_IDX"]
+  }
+}
+
+Table "dim_date" {
+  "date_key" int(10) [pk, not null, note: "Surrogate key in YYYYMMDD format (e.g., 20240315)"]
+  "date" date [not null, unique]
+
+  // Date Hierarchy Attributes
+  "day_of_week" int(1) [note: "1=Monday, 7=Sunday (ISO 8601)"]
+  "day_of_week_name" varchar(10) [note: "Monday, Tuesday, Wednesday, etc."]
+  "day_of_month" int(2) [note: "1-31"]
+  "week_of_year" int(2) [note: "1-53"]
+  "month" int(2) [note: "1-12"]
+  "month_name" varchar(10) [note: "January, February, etc."]
+  "quarter" int(1) [note: "1, 2, 3, or 4"]
+  "year" int(4) [note: "Full year (e.g., 2024)"]
+
+  // Business Calendar Attributes
+  "is_weekend" boolean [not null, note: "TRUE if Saturday or Sunday"]
+
+  // COVID-19 Period Analysis (3 boolean flags)
+  "is_pre_covid" boolean [not null, note: "TRUE for dates before 2020-03-01"]
+  "is_covid" boolean [not null, note: "TRUE for dates from 2020-03-01 to 2022-06-30"]
+  "is_post_covid" boolean [not null, note: "TRUE for dates after 2022-06-30"]
+
+  Note: '''
+  DIMENSION TABLE - Date calendar with hierarchies and COVID period flags.
+
+  PURPOSE: Shared time dimension for fact_rental and fact_service.
+  Provides temporal context and supports time-based analysis across all facts.
+
+  KEY ATTRIBUTES:
+  - date_key: Integer format (YYYYMMDD) for efficient joins
+  - Date hierarchies: day → week → month → quarter → year
+  - is_weekend: For weekend vs weekday pattern analysis
+  - COVID flags: For pandemic impact analysis
+
+  COVID PERIOD DEFINITIONS:
+  Three mutually exclusive boolean flags for pandemic analysis:
+  - is_pre_covid: TRUE for dates < 2020-03-01 (before pandemic)
+  - is_covid: TRUE for 2020-03-01 to 2022-06-30 (during pandemic)
+  - is_post_covid: TRUE for dates > 2022-06-30 (after pandemic)
+
+  These flags enable easy filtering and comparison:
+  - Pre-COVID rentals: WHERE is_pre_covid = TRUE
+  - COVID impact: SUM(rentals WHERE is_covid) - SUM(rentals WHERE is_pre_covid)
+  - Recovery analysis: Compare is_covid vs is_post_covid periods
+
+  DESIGN NOTES:
+  - Pre-populated with dates from 2018-01-01 to 2030-12-31
+  - Static dimension (no updates except one-time population)
+  - date_key format (YYYYMMDD) enables efficient partitioning
+  - Simplified from academic example (removed rarely-used attributes)
+
+  SHARED DIMENSION:
+  This dimension is referenced by:
+  - fact_rental: rental_date_key, return_date_key
+  - fact_service: service_date_key
+
+  Business queries supported:
+  - Time-series trends (monthly, quarterly, yearly)
+  - Seasonality analysis
+  - Weekend vs weekday patterns
+  - COVID impact analysis (before/during/after comparison)
+  - Year-over-year growth calculations
+  '''
+
+  Indexes {
+    date [name: "dim_date_date_IDX", unique]
+    (year, month) [name: "dim_date_year_month_IDX"]
+    (year, quarter) [name: "dim_date_year_quarter_IDX"]
+    is_pre_covid [name: "dim_date_precovid_IDX"]
+    is_covid [name: "dim_date_covid_IDX"]
+    is_post_covid [name: "dim_date_postcovid_IDX"]
+  }
+}
+
+Table "dim_equipment" {
+  "equipment_key" int(10) [pk, not null, increment, note: "Surrogate key"]
+  "equipment_id" int(10) [not null, note: "Business key from source system"]
+
+  // Equipment Information
+  "name" varchar(50) [not null, note: "Equipment name (GPS, Leather Seats, Sunroof, etc.)"]
+  "type" varchar(50) [note: "Category: Safety, Comfort, Technology, Performance"]
+
+  Note: '''
+  DIMENSION TABLE - Equipment catalog.
+
+  PURPOSE: Catalog of car equipment/features.
+  Connected to dim_car via bridge_car_equipment (many-to-many).
+
+  KEY ATTRIBUTES:
+  - name: Specific equipment (GPS Navigation, Backup Camera, etc.)
+  - type: Category for grouping (Safety, Comfort, Technology)
+
+  MANY-TO-MANY RELATIONSHIP:
+  - One car has multiple equipment items
+  - One equipment type appears in multiple cars
+  - Resolved via bridge_car_equipment table
+
+  EXAMPLES:
+  | equipment_id | name              | type       |
+  |--------------|-------------------|------------|
+  | 1            | GPS Navigation    | Technology |
+  | 2            | Leather Seats     | Comfort    |
+  | 3            | Sunroof           | Comfort    |
+  | 4            | Backup Camera     | Safety     |
+  | 5            | Cruise Control    | Technology |
+
+  Business queries supported:
+  - Most popular equipment (COUNT rentals BY equipment)
+  - Equipment preference changes (pre/during/post COVID)
+  - Least rented cars by equipment
+  - Equipment combinations analysis
+  '''
+
+  Indexes {
+    equipment_id [name: "dim_equipment_business_key_IDX", unique]
+    type [name: "dim_equipment_type_IDX"]
+  }
+}
+
+// =============================================================================
+// BRIDGE TABLE
+// =============================================================================
+
+Table "bridge_car_equipment" {
+  "car_key" int(10) [not null, note: "FK to dim_car"]
+  "equipment_key" int(10) [not null, note: "FK to dim_equipment"]
+
+  Note: '''
+  BRIDGE TABLE - Resolves many-to-many relationship between cars and equipment.
+
+  PURPOSE: Handles the many-to-many relationship between dim_car and dim_equipment.
+
+  RELATIONSHIP:
+  - One car has multiple equipment items (GPS, Sunroof, Leather Seats)
+  - One equipment type appears in multiple cars
+  - Bridge table creates the junction/association
+
+  ALTERNATIVE APPROACHES (not used):
+  1. Repeat car rows for each equipment → data duplication
+  2. Store equipment as delimited string → not queryable
+  3. JSON/array columns → poor performance, complex queries
+
+  EXAMPLE DATA:
+  | car_key | equipment_key | (meaning)                    |
+  |---------|---------------|------------------------------|
+  | 1       | 10            | Car #1 has GPS               |
+  | 1       | 11            | Car #1 has Sunroof           |
+  | 1       | 12            | Car #1 has Leather Seats     |
+  | 2       | 10            | Car #2 has GPS               |
+  | 2       | 13            | Car #2 has Backup Camera     |
+
+  QUERY PATTERNS:
+
+  1. Find all cars with specific equipment:
+  SELECT DISTINCT c.*
+  FROM dim_car c
+  JOIN bridge_car_equipment b ON c.car_key = b.car_key
+  JOIN dim_equipment e ON b.equipment_key = e.equipment_key
+  WHERE e.name = 'GPS'
+
+  2. Count unique cars with GPS (Power BI):
+  Cars_With_GPS =
+    CALCULATE(
+      DISTINCTCOUNT(bridge_car_equipment[car_key]),
+      dim_equipment[name] = "GPS"
+    )
+
+  3. Find all equipment in a specific car:
+  SELECT e.name, e.type
+  FROM bridge_car_equipment b
+  JOIN dim_equipment e ON b.equipment_key = e.equipment_key
+  WHERE b.car_key = 1
+
+  4. Most popular equipment:
+  SELECT e.name, COUNT(DISTINCT b.car_key) as car_count
+  FROM dim_equipment e
+  JOIN bridge_car_equipment b ON e.equipment_key = b.equipment_key
+  GROUP BY e.name
+  ORDER BY car_count DESC
+
+  NOTE ON WEIGHT_FACTOR:
+  Original design included weight_factor (1/count of equipment per car) for
+  measure allocation. Removed for simplicity since Power BI handles
+  distinct counting natively with DISTINCTCOUNT() function.
+  '''
+
+  Indexes {
+    (car_key, equipment_key) [pk, name: "bridge_car_equipment_PK"]
+    car_key [name: "bridge_car_equipment_car_IDX"]
+    equipment_key [name: "bridge_car_equipment_equip_IDX"]
+  }
+}
+
+// =============================================================================
+// RELATIONSHIPS (Foreign Keys)
+// =============================================================================
+
+// fact_rental to Dimensions
+Ref "fact_rental_to_dim_customer": "dim_customer"."customer_key" < "fact_rental"."customer_key"
+Ref "fact_rental_to_dim_car": "dim_car"."car_key" < "fact_rental"."car_key"
+Ref "fact_rental_to_dim_staff": "dim_staff"."staff_key" < "fact_rental"."staff_key"
+Ref "fact_rental_to_dim_store": "dim_store"."store_key" < "fact_rental"."store_key"
+Ref "fact_rental_to_dim_payment": "dim_payment"."payment_key" < "fact_rental"."payment_key"
+Ref "fact_rental_to_dim_date_rental": "dim_date"."date_key" < "fact_rental"."rental_date_key"
+Ref "fact_rental_to_dim_date_return": "dim_date"."date_key" < "fact_rental"."return_date_key"
+
+// fact_service to Dimensions
+Ref "fact_service_to_dim_car": "dim_car"."car_key" < "fact_service"."car_key"
+Ref "fact_service_to_dim_date": "dim_date"."date_key" < "fact_service"."service_date_key"
+Ref "fact_service_to_dim_store": "dim_store"."store_key" < "fact_service"."store_key"
+
+// Dimension to Dimension
+Ref "dim_car_to_dim_store": "dim_store"."store_key" < "dim_car"."store_key"
+Ref "dim_staff_to_dim_store": "dim_store"."store_key" < "dim_staff"."store_key"
+Ref "dim_staff_to_dim_staff_manager": "dim_staff"."staff_key" < "dim_staff"."manager_staff_key"
+
+// Bridge Table to Dimensions
+Ref "bridge_to_dim_car": "dim_car"."car_key" < "bridge_car_equipment"."car_key"
+Ref "bridge_to_dim_equipment": "dim_equipment"."equipment_key" < "bridge_car_equipment"."equipment_key"
+
+// =============================================================================
+// ETL PROCESSING NOTES
+// =============================================================================
+//
+// INCREMENTAL LOADING STRATEGY:
+// This warehouse uses source system timestamps (create_date, last_update)
+// for incremental loading instead of ETL audit columns.
+//
+// Recommended: Use a watermark table to track last processed timestamps:
+//
+// CREATE TABLE etl_watermarks (
+//   table_name VARCHAR(50) PRIMARY KEY,
+//   last_processed_timestamp DATETIME,
+//   last_processed_id INT,
+//   last_run_timestamp DATETIME
+// );
+//
+// LOAD ORDER:
+// 1. dim_date (static - load once, 2018-2030)
+// 2. dim_store (small, rarely changes)
+// 3. dim_equipment (static catalog)
+// 4. dim_customer (with SCD Type 2 logic)
+// 5. dim_staff (simple, depends on dim_store)
+// 6. dim_car (depends on dim_store)
+// 7. bridge_car_equipment (depends on dim_car and dim_equipment)
+// 8. dim_payment (independent)
+// 9. fact_rental (last - depends on all dimensions)
+// 10. fact_service (last - depends on dim_car, dim_date, dim_store)
+//
+// Update aggregates in dim_car:
+// 11. UPDATE dim_car.total_revenue = SUM(fact_rental.rental_rate) per car
+// 12. UPDATE dim_car.total_service_cost = SUM(fact_service.service_cost) per car
+//
+// =============================================================================
+// SCD TYPE 2 PROCESSING (dim_customer only)
+// =============================================================================
+//
+// dim_customer tracks address changes:
+//
+// LOGIC:
+// 1. Extract current customers from source (customer, address, city, country)
+// 2. For each customer_id:
+//    a. Find current record in dim_customer WHERE is_current = TRUE
+//    b. Compare city/country with source
+//    c. If changed:
+//       - UPDATE existing record: SET is_current = FALSE, end_date = CURRENT_DATE
+//       - INSERT new record: new customer_key, is_current = TRUE,
+//         effective_date = CURRENT_DATE, end_date = NULL
+//    d. If unchanged:
+//       - No action (keep existing record)
+//
+// FACT TABLE JOIN (temporal accuracy):
+// When loading fact_rental, join to get correct customer version:
+//
+// SELECT c.customer_key
+// FROM source_rental r
+// JOIN dim_customer c
+//   ON r.customer_id = c.customer_id
+//   AND r.rental_date BETWEEN c.effective_date
+//   AND COALESCE(c.end_date, '9999-12-31')
+//
+// This ensures fact_rental.customer_key points to the customer record
+// that was valid at the time of rental.
+//
+// =============================================================================
+// PRE-AGGREGATED METRICS IN dim_car
+// =============================================================================
+//
+// dim_car contains pre-calculated aggregates for performance:
+//
+// total_revenue:
+// UPDATE dim_car c
+// SET total_revenue = (
+//   SELECT SUM(rental_rate)
+//   FROM fact_rental
+//   WHERE car_key = c.car_key
+// )
+//
+// total_service_cost:
+// UPDATE dim_car c
+// SET total_service_cost = (
+//   SELECT SUM(service_cost)
+//   FROM fact_service
+//   WHERE car_key = c.car_key
+// )
+//
+// These aggregates are refreshed during ETL (daily/weekly).
+// Power BI can use these for quick KPIs or recalculate from facts for drill-down.
+//
+// =============================================================================
+// COVID PERIOD FLAGS IN dim_date
+// =============================================================================
+//
+// dim_date pre-populated with COVID flags:
+//
+// UPDATE dim_date
+// SET
+//   is_pre_covid = CASE WHEN date < '2020-03-01' THEN TRUE ELSE FALSE END,
+//   is_covid = CASE WHEN date >= '2020-03-01' AND date <= '2022-06-30' THEN TRUE ELSE FALSE END,
+//   is_post_covid = CASE WHEN date > '2022-06-30' THEN TRUE ELSE FALSE END
+//
+// Populated once during initial dim_date load.
+//
+// =============================================================================
+// PAYMENT DEADLINE AND LATE PAYMENT CALCULATION
+// =============================================================================
+//
+// dim_payment pre-calculates late payment indicators:
+//
+// INSERT INTO dim_payment (
+//   payment_id,
+//   amount,
+//   payment_date,
+//   payment_deadline,
+//   is_late_payment,
+//   days_overdue
+// )
+// SELECT
+//   p.payment_id,
+//   p.amount,
+//   p.payment_date,
+//   r.payment_deadline,
+//   CASE WHEN p.payment_date > r.payment_deadline THEN TRUE ELSE FALSE END,
+//   DATEDIFF(day, r.payment_deadline, p.payment_date)
+// FROM source_payment p
+// JOIN source_rental r ON p.rental_id = r.rental_id
+//
+// =============================================================================
