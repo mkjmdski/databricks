@@ -2,20 +2,20 @@ locals {
   subdirectory = "wheelie"
   notebooks = {
     pull_wheelie = {
-      notebook_filename = "pull_wheelie.py"
+      notebook_filename = "pull_wheelie.ipynb"
       language          = "PYTHON"
     }
   }
 }
 
-
-resource "databricks_notebook" "this" {
-  for_each = local.notebooks
-  path     = "${data.databricks_current_user.me.home}/${local.subdirectory}/${each.key}"
-  language = each.value.language
-  source   = "../notebooks/${each.value.notebook_filename}"
+removed {
+  from = databricks_notebook.this
+  lifecycle {
+    destroy = false
+  }
 }
 
-output "notebook_urls" {
-  value = { for k, v in databricks_notebook.this : k => databricks_notebook.this[k].url }
+resource "databricks_repo" "nutter_in_home" {
+  url = "https://github.com/mkjmdski/databricks.git"
+  path = "/Workspace/Users/a662d958-d69f-42df-b30c-66cb1c96944e/wheelie-repo"
 }
