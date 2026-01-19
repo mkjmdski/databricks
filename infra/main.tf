@@ -2,7 +2,7 @@ locals {
   subdirectory = "wheelie"
   notebooks = {
     pull_wheelie = {
-      notebook_filename = "pull_wheelie.py"
+      notebook_filename = "pull_wheelie.ipynb"
       language          = "PYTHON"
     }
   }
@@ -13,7 +13,7 @@ resource "databricks_notebook" "this" {
   for_each = local.notebooks
   path     = "${data.databricks_current_user.me.home}/${local.subdirectory}/${each.key}"
   language = each.value.language
-  source   = "../notebooks/${each.value.notebook_filename}"
+  content_base64 = base64encode(file("${path.module}/../notebooks/${each.value.notebook_filename}"))
 }
 
 output "notebook_urls" {
