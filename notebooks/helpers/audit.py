@@ -5,7 +5,6 @@ Records INSERT, UPDATE, and SCD2 operations for compliance and debugging.
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import col, current_timestamp, lit
@@ -25,7 +24,7 @@ class ChangeAuditLogger:
     - SCD2_CLOSE_OLD: Old version closed (SCD Type 2)
     """
 
-    def __init__(self, spark: SparkSession, batch_id: Optional[str] = None, schema: str = "wheelie.monitoring"):
+    def __init__(self, spark: SparkSession, batch_id: str | None = None, schema: str = "wheelie.monitoring"):
         """
         Initialize audit logger.
 
@@ -52,7 +51,7 @@ class ChangeAuditLogger:
         table_name: str,
         business_key: str,
         surrogate_key: str,
-        new_values: Dict[str, str],
+        new_values: dict[str, str],
     ):
         """
         Log INSERT operation (new record).
@@ -78,9 +77,9 @@ class ChangeAuditLogger:
         table_name: str,
         business_key: str,
         surrogate_key: str,
-        changed_columns: List[str],
-        old_values: Dict[str, str],
-        new_values: Dict[str, str],
+        changed_columns: list[str],
+        old_values: dict[str, str],
+        new_values: dict[str, str],
     ):
         """
         Log UPDATE operation (SCD Type 1 overwrite).
@@ -108,9 +107,9 @@ class ChangeAuditLogger:
         table_name: str,
         business_key: str,
         surrogate_key: str,
-        changed_columns: List[str],
-        old_values: Dict[str, str],
-        new_values: Dict[str, str],
+        changed_columns: list[str],
+        old_values: dict[str, str],
+        new_values: dict[str, str],
     ):
         """
         Log SCD Type 2 new version creation.
@@ -163,9 +162,9 @@ class ChangeAuditLogger:
         operation: str,
         business_key: str,
         surrogate_key: str,
-        changed_columns: List[str],
-        old_values: Dict[str, str],
-        new_values: Dict[str, str],
+        changed_columns: list[str],
+        old_values: dict[str, str],
+        new_values: dict[str, str],
     ):
         """
         Internal method to write audit record.
@@ -229,14 +228,17 @@ class ChangeAuditLogger:
         logger.info(f"Logging {changes_df.count()} {operation} operations for {table_name}")
 
         # Add audit metadata
-        audit_df = changes_df.withColumn("table_name", lit(table_name)).withColumn(
-            "operation", lit(operation)
-        ).withColumn("audit_timestamp", current_timestamp()).withColumn("batch_id", lit(self.batch_id))
+        audit_df = (
+            changes_df.withColumn("table_name", lit(table_name))
+            .withColumn("operation", lit(operation))
+            .withColumn("audit_timestamp", current_timestamp())
+            .withColumn("batch_id", lit(self.batch_id))
+        )
 
         # Append to audit table
         audit_df.write.format("delta").mode("append").saveAsTable(self.audit_table)
 
-    def get_audit_summary(self, table_name: Optional[str] = None, batch_id: Optional[str] = None) -> DataFrame:
+    def get_audit_summary(self, table_name: str | None = None, batch_id: str | None = None) -> DataFrame:
         """
         Get audit log summary for monitoring.
 

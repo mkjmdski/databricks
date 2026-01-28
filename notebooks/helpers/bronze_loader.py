@@ -5,15 +5,14 @@ Handles extraction from MySQL and merging to bronze Delta tables.
 
 import logging
 from datetime import datetime
-from typing import Optional
 
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import current_timestamp, lit
 
+from .audit import ChangeAuditLogger
 from .database import create_connection, write_bronze_table
 from .watermark import WatermarkManager
-from .audit import ChangeAuditLogger
 
 
 logger = logging.getLogger("wheelie_etl")
@@ -28,7 +27,7 @@ class BronzeLoader:
     2. Merge into bronze Delta table (upsert by business key)
     """
 
-    def __init__(self, spark: SparkSession, dbutils, batch_id: Optional[str] = None):
+    def __init__(self, spark: SparkSession, dbutils, batch_id: str | None = None):
         """
         Initialize bronze loader.
 

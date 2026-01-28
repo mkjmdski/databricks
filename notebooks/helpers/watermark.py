@@ -5,7 +5,6 @@ Tracks last successfully loaded timestamp per source table.
 
 import logging
 from datetime import datetime
-from typing import Optional
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
@@ -42,7 +41,7 @@ class WatermarkManager:
                 f"Please run setup_db.sql to create monitoring infrastructure."
             )
 
-    def get_watermark(self, table_name: str) -> Optional[datetime]:
+    def get_watermark(self, table_name: str) -> datetime | None:
         """
         Get last successful watermark for a table.
 

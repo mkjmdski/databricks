@@ -5,11 +5,10 @@ Handles dimension table updates with appropriate versioning strategies.
 
 import logging
 from datetime import datetime
-from typing import List, Optional
 
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, current_timestamp, lit
+from pyspark.sql.functions import current_timestamp, lit
 
 from .audit import ChangeAuditLogger
 from .database import write_gold_table
@@ -21,15 +20,15 @@ logger = logging.getLogger("wheelie_etl")
 class GoldLoader:
     """
     Handles gold layer upserts with SCD Type 1 and Type 2 support.
-    
+
     SCD Type 1: Overwrite existing records (simple update)
     SCD Type 2: Create new versions for changed records (track history)
     """
 
-    def __init__(self, spark: SparkSession, batch_id: Optional[str] = None):
+    def __init__(self, spark: SparkSession, batch_id: str | None = None):
         """
         Initialize gold loader.
-        
+
         Args:
             spark: SparkSession instance
             batch_id: Unique identifier for this ETL run
@@ -46,11 +45,11 @@ class GoldLoader:
         business_key: str,
         surrogate_key: str,
         scd_type: int = 1,
-        tracking_columns: Optional[List[str]] = None,
+        tracking_columns: list[str] | None = None,
     ):
         """
         Upsert DataFrame to gold layer with SCD logic.
-        
+
         Args:
             df: DataFrame to upsert (should already have surrogate keys)
             table_name: Gold table name (without schema)
@@ -94,7 +93,7 @@ class GoldLoader:
     ):
         """
         SCD Type 1: Overwrite existing records.
-        
+
         Uses MERGE:
         - WHEN MATCHED: Update all columns
         - WHEN NOT MATCHED: Insert new record
@@ -117,12 +116,12 @@ class GoldLoader:
         gold_table_path: str,
         business_key: str,
         surrogate_key: str,
-        tracking_columns: List[str],
+        tracking_columns: list[str],
         table_name: str,
     ):
         """
         SCD Type 2: Create new versions for changed records.
-        
+
         Process:
         1. Find records where tracking columns changed
         2. Close old versions (set is_current=FALSE, end_date=now)

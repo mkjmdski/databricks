@@ -4,8 +4,8 @@ Configuration-driven approach to run incremental loads for dimensions and facts.
 """
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional
 
 from pyspark.sql import DataFrame, SparkSession
 
@@ -31,14 +31,15 @@ class TableConfig:
         gold_table_name: Gold table name (defaults to dim_{table_name})
         silver_transform: Function to transform bronze→silver→gold DataFrame
     """
+
     table_name: str
     business_key: str
     surrogate_key: str
     watermark_column: str = "last_update"
     scd_type: int = 1
-    tracking_columns: Optional[List[str]] = None
-    gold_table_name: Optional[str] = None
-    silver_transform: Optional[Callable[[DataFrame], DataFrame]] = None
+    tracking_columns: list[str] | None = None
+    gold_table_name: str | None = None
+    silver_transform: Callable[[DataFrame], DataFrame] | None = None
 
     def __post_init__(self):
         """Set defaults after initialization."""
@@ -76,7 +77,7 @@ class IncrementalPipeline:
         pipeline.load_table(customer_config)
     """
 
-    def __init__(self, spark: SparkSession, dbutils, batch_id: Optional[str] = None):
+    def __init__(self, spark: SparkSession, dbutils, batch_id: str | None = None):
         """
         Initialize pipeline.
 
@@ -92,7 +93,7 @@ class IncrementalPipeline:
         self.gold_loader = GoldLoader(spark, batch_id)
         logger.info(f"IncrementalPipeline initialized (batch_id: {batch_id})")
 
-    def load_table(self, config: TableConfig, force_full: bool = False) -> Dict[str, any]:
+    def load_table(self, config: TableConfig, force_full: bool = False) -> dict[str, any]:
         """
         Run incremental load for a single table.
 
@@ -104,6 +105,7 @@ class IncrementalPipeline:
             Dictionary with load metrics (row_count, load_type, duration, etc.)
         """
         import time
+
         start_time = time.time()
 
         logger.info("=" * 70)
@@ -113,19 +115,19 @@ class IncrementalPipeline:
         try:
             # Step 1: Load incremental from MySQL
             df_bronze_incremental = self.bronze_loader.load_incremental(
-                table_name=config.table_name,
-                watermark_column=config.watermark_column,
-                force_full=force_full
+                table_name=config.table_name, watermark_column=config.watermark_column, force_full=force_full
             )
 
             row_count = df_bronze_incremental.count()
-            load_type = "FULL" if force_full or not self.bronze_loader.watermark_manager.has_watermark(config.table_name) else "INCREMENTAL"
+            load_type = (
+                "FULL"
+                if force_full or not self.bronze_loader.watermark_manager.has_watermark(config.table_name)
+                else "INCREMENTAL"
+            )
 
             # Step 2: Merge to bronze Delta table
             self.bronze_loader.merge_to_bronze(
-                df=df_bronze_incremental,
-                table_name=config.table_name,
-                business_key=config.business_key
+                df=df_bronze_incremental, table_name=config.table_name, business_key=config.business_key
             )
 
             # Step 3: Apply silver transformations
@@ -145,7 +147,7 @@ class IncrementalPipeline:
                 business_key=config.business_key,
                 surrogate_key=config.surrogate_key,
                 scd_type=config.scd_type,
-                tracking_columns=config.tracking_columns
+                tracking_columns=config.tracking_columns,
             )
 
             # Step 5: Update watermark
@@ -153,7 +155,7 @@ class IncrementalPipeline:
                 table_name=config.table_name,
                 df=df_bronze_incremental,
                 watermark_column=config.watermark_column,
-                load_type=load_type
+                load_type=load_type,
             )
 
             duration = time.time() - start_time
@@ -167,7 +169,7 @@ class IncrementalPipeline:
                 "row_count": row_count,
                 "load_type": load_type,
                 "duration_seconds": duration,
-                "status": "SUCCESS"
+                "status": "SUCCESS",
             }
 
         except Exception as e:
@@ -175,7 +177,7 @@ class IncrementalPipeline:
             logger.error(f"FAILED: {config.table_name} after {duration:.2f}s - {str(e)}")
             raise
 
-    def load_tables(self, configs: List[TableConfig], force_full: bool = False) -> List[Dict[str, any]]:
+    def load_tables(self, configs: list[TableConfig], force_full: bool = False) -> list[dict[str, any]]:
         """
         Run incremental load for multiple tables sequentially.
 
@@ -198,12 +200,14 @@ class IncrementalPipeline:
                 results.append(result)
             except Exception as e:
                 logger.error(f"Failed to load {config.table_name}: {str(e)}")
-                results.append({
-                    "table_name": config.table_name,
-                    "gold_table_name": config.gold_table_name,
-                    "status": "FAILED",
-                    "error": str(e)
-                })
+                results.append(
+                    {
+                        "table_name": config.table_name,
+                        "gold_table_name": config.gold_table_name,
+                        "status": "FAILED",
+                        "error": str(e),
+                    }
+                )
                 # Continue with next table instead of failing entire batch
                 continue
 
