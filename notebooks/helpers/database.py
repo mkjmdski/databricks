@@ -11,14 +11,18 @@ import logging
 logger = logging.getLogger("wheelie_etl")
 
 
-def create_connection():
+def create_connection(spark, dbutils):
     """
     Create JDBC connection to MySQL source database.
     Uses dbutils.secrets for secure credential management.
-    
+
+    Args:
+        spark: SparkSession from notebook context
+        dbutils: DBUtils from notebook context
+
     Returns:
         DataFrameReader configured for JDBC connection
-        
+
     Raises:
         Exception: If connection creation fails
     """
@@ -35,18 +39,18 @@ def create_connection():
 def load_bronze_table(conn, table_name: str) -> DataFrame:
     """
     BRONZE LAYER: Load raw table from MySQL as in-memory DataFrame.
-    
+
     - No transformations applied
     - Adds ingestion metadata (_ingestion_ts, _source)
     - Preserves all source columns
-    
+
     Args:
         conn: JDBC connection reader (from create_connection())
         table_name: Source table name in MySQL
-        
+
     Returns:
         DataFrame with raw data + metadata columns
-        
+
     Raises:
         Exception: If table load fails
     """
@@ -66,23 +70,23 @@ def load_bronze_table(conn, table_name: str) -> DataFrame:
 def write_gold_table(df: DataFrame, table_name: str, mode: str = "overwrite", display_data: bool = False):
     """
     GOLD LAYER: Write DataFrame to Delta table in data warehouse.
-    
+
     Args:
         df: DataFrame to persist
         table_name: Target table name (without schema prefix)
         mode: Write mode ('overwrite', 'append', 'merge'). Default: 'overwrite'
         display_data: Whether to display DataFrame before writing. Default: False
-        
+
     Raises:
         Exception: If write operation fails
     """
     logger.info(f"GOLD: Writing {table_name}")
     try:
         row_count = df.count()
-        
+
         if display_data:
             display(df)
-            
+
         df.write.format("delta") \
             .mode(mode) \
             .option("overwriteSchema", "true") \
