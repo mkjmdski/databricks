@@ -56,7 +56,9 @@ def clean_address_silver(address_bronze: DataFrame) -> DataFrame:
 
 def clean_customer_silver(customer_bronze: DataFrame) -> DataFrame:
     """
-    Clean customer data: fix email format (remove spaces, fix double dots).
+    Clean customer data: fix email format (lowercase, remove special chars, transliterate accents).
+
+    Ensures emails match pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
 
     Args:
         customer_bronze: Raw customer DataFrame
@@ -64,12 +66,36 @@ def clean_customer_silver(customer_bronze: DataFrame) -> DataFrame:
     Returns:
         Cleaned customer DataFrame
     """
+    from pyspark.sql.functions import translate
+
+    # Define character mappings for transliteration (accented -> Latin)
+    accented = "àáâãäåąāæçćčďèéêëęēěìíîïłńñňòóôõöøśšťùúûüůýÿźżžÀÁÂÃÄÅĄĀÆÇĆČĎÈÉÊËĘĒĚÌÍÎÏŁŃÑŇÒÓÔÕÖØŚŠŤÙÚÛÜŮÝŸŹŻŽ"
+    latin = (
+        "aaaaaaaaaccccdeeeeeeeiiiilnnnoooooosstuuuuuyyzzz"
+        + "aaaaaaaaaccccdeeeeeeeiiiilnnnoooooosstuu"
+        + "uuuyyzzzz".upper()
+    )
+
     return customer_bronze.withColumn(
         "email",
+        # Final cleanup: ensure only valid email characters remain
+        # Pattern: [a-zA-Z0-9._%+-]@[a-zA-Z0-9.-].[a-zA-Z]
         regexp_replace(
-            regexp_replace(col("email"), r"\s+", ""),  # Remove all spaces
-            r"\.{2,}",
-            ".",  # Replace multiple dots with single dot
+            translate(
+                regexp_replace(
+                    regexp_replace(
+                        regexp_replace(lower(col("email")), r"\s+", ""),  # 1. Lowercase and remove spaces
+                        r"\.{2,}",
+                        ".",  # 2. Fix multiple dots
+                    ),
+                    r"['`´]",
+                    "",  # 3. Remove apostrophes and backticks
+                ),
+                accented,
+                latin,  # 4. Transliterate accented chars
+            ),
+            r"[^a-z0-9._%+@-]",
+            "",  # 5. Remove any remaining invalid characters
         ),
     )
 
