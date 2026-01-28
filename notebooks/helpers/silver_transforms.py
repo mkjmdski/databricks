@@ -135,7 +135,7 @@ def transform_staff_to_gold(staff_bronze: DataFrame, address_with_location: Data
         col("city").alias("staff_city"),
         col("country").alias("staff_country"),
         col("full_address").alias("staff_full_address"),
-        col("staff.create_date").alias("create_date"),
+        col("staff.hired_date").alias("hired_date"),
         col("staff.last_update").alias("last_update")
     ).withColumn("staff_key", xxhash64(col("staff_id")))
 
