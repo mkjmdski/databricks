@@ -1,0 +1,93 @@
+"""
+Database connection and data loading utilities.
+Implements bronze→silver→gold medallion pattern helpers.
+"""
+from pyspark.sql import DataFrame
+from pyspark.sql.functions import current_timestamp, lit
+from typing import Optional
+import logging
+
+# Get logger
+logger = logging.getLogger("wheelie_etl")
+
+
+def create_connection():
+    """
+    Create JDBC connection to MySQL source database.
+    Uses dbutils.secrets for secure credential management.
+    
+    Returns:
+        DataFrameReader configured for JDBC connection
+        
+    Raises:
+        Exception: If connection creation fails
+    """
+    try:
+        return spark.read.format("jdbc") \
+            .option("url", f"jdbc:mysql://{dbutils.secrets.get('wheelie', 'MYSQL_HOST')}/{dbutils.secrets.get('wheelie', 'MYSQL_DB')}") \
+            .option("user", dbutils.secrets.get('wheelie', 'MYSQL_USERNAME')) \
+            .option("password", dbutils.secrets.get('wheelie', 'MYSQL_PASSWORD'))
+    except Exception as e:
+        logger.error(f"Failed to create connection: {str(e)}")
+        raise
+
+
+def load_bronze_table(conn, table_name: str) -> DataFrame:
+    """
+    BRONZE LAYER: Load raw table from MySQL as in-memory DataFrame.
+    
+    - No transformations applied
+    - Adds ingestion metadata (_ingestion_ts, _source)
+    - Preserves all source columns
+    
+    Args:
+        conn: JDBC connection reader (from create_connection())
+        table_name: Source table name in MySQL
+        
+    Returns:
+        DataFrame with raw data + metadata columns
+        
+    Raises:
+        Exception: If table load fails
+    """
+    logger.info(f"BRONZE: Loading {table_name}")
+    try:
+        df = conn.option("dbtable", table_name).load()
+        df_bronze = df.withColumn("_ingestion_ts", current_timestamp()) \
+                      .withColumn("_source", lit("mysql_wheelie"))
+        row_count = df_bronze.count()
+        logger.info(f"BRONZE: {table_name} loaded ({row_count:,} rows)")
+        return df_bronze
+    except Exception as e:
+        logger.error(f"Failed to load bronze table {table_name}: {str(e)}")
+        raise
+
+
+def write_gold_table(df: DataFrame, table_name: str, mode: str = "overwrite", display_data: bool = False):
+    """
+    GOLD LAYER: Write DataFrame to Delta table in data warehouse.
+    
+    Args:
+        df: DataFrame to persist
+        table_name: Target table name (without schema prefix)
+        mode: Write mode ('overwrite', 'append', 'merge'). Default: 'overwrite'
+        display_data: Whether to display DataFrame before writing. Default: False
+        
+    Raises:
+        Exception: If write operation fails
+    """
+    logger.info(f"GOLD: Writing {table_name}")
+    try:
+        row_count = df.count()
+        
+        if display_data:
+            display(df)
+            
+        df.write.format("delta") \
+            .mode(mode) \
+            .option("overwriteSchema", "true") \
+            .saveAsTable(f"wheelie.data_warehouse.{table_name}")
+        logger.info(f"GOLD: {table_name} written ({row_count:,} rows)")
+    except Exception as e:
+        logger.error(f"Failed to write gold table {table_name}: {str(e)}")
+        raise
