@@ -6,11 +6,15 @@ terraform code configured on the remote workspace at https://app.terraform.io/ap
 
 ## notebooks
 
-python notebooks provisioned by the terraform
+python notebooks pinned via terraform as repo object to databricks
 
 ## data-structure
 
 DBMLs that represent different layers of data
+
+## .github
+
+workflows and copilot setup
 
 # sources
 
