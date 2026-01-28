@@ -3,8 +3,59 @@ Helper functions for Databricks ETL pipeline.
 Provides common utilities for database connections, logging, and data loading.
 """
 
-from .database import create_connection, load_bronze_table, write_gold_table
+from .audit import ChangeAuditLogger
+from .bronze_loader import BronzeLoader
+from .database import create_connection, load_bronze_table, write_bronze_table, write_gold_table
+from .gold_loader import GoldLoader
+from .incremental_pipeline import IncrementalPipeline, TableConfig
 from .logging_config import setup_logger
+from .silver_transforms import (
+    # Full pipeline functions (used by notebooks)
+    transform_customer_full_pipeline,
+    transform_staff_full_pipeline,
+    transform_store_full_pipeline,
+    transform_car_full_pipeline,
+    # Date dimension functions
+    generate_date_dimension,
+    generate_role_playing_date_dimensions,
+    # Staff hierarchy
+    build_staff_hierarchy_bridge,
+    # Equipment bridges
+    transform_equipment_dimension,
+    build_equipment_bridges,
+    # Fact transformations
+    transform_service_fact,
+    transform_rental_fact,
+)
+from .watermark import WatermarkManager
 
 
-__all__ = ["create_connection", "load_bronze_table", "write_gold_table", "setup_logger"]
+__all__ = [
+    "create_connection",
+    "load_bronze_table",
+    "write_bronze_table",
+    "write_gold_table",
+    "setup_logger",
+    "WatermarkManager",
+    "BronzeLoader",
+    "GoldLoader",
+    "ChangeAuditLogger",
+    "IncrementalPipeline",
+    "TableConfig",
+    # Silver transforms (full pipelines only - cleaning functions are internal)
+    "transform_customer_full_pipeline",
+    "transform_staff_full_pipeline",
+    "transform_store_full_pipeline",
+    "transform_car_full_pipeline",
+    # Date dimensions
+    "generate_date_dimension",
+    "generate_role_playing_date_dimensions",
+    # Staff hierarchy
+    "build_staff_hierarchy_bridge",
+    # Equipment
+    "transform_equipment_dimension",
+    "build_equipment_bridges",
+    # Facts
+    "transform_service_fact",
+    "transform_rental_fact",
+]

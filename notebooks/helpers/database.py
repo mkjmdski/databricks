@@ -80,6 +80,7 @@ def write_gold_table(
     mode: str = "overwrite",
     display_data: bool = False,
     partition_by: list | None = None,
+    schema: str = "gold",
 ):
     """
     GOLD LAYER: Write DataFrame to Delta table in data warehouse.
@@ -92,6 +93,7 @@ def write_gold_table(
         partition_by: Optional list of column names to partition by.
                       Recommended only for large tables (>100k rows).
                       Example: ['service_date'] for fact_service
+        schema: Target schema name. Default: 'gold'
 
     Raises:
         Exception: If write operation fails
@@ -115,8 +117,40 @@ def write_gold_table(
             logger.info(f"GOLD: Partitioning {table_name} by {partition_by}")
             writer = writer.partitionBy(*partition_by)
 
-        writer.saveAsTable(f"wheelie.data_warehouse.{table_name}")
-        logger.info(f"GOLD: {table_name} written ({row_count:,} rows)")
+        full_table_name = f"wheelie.{schema}.{table_name}"
+        writer.saveAsTable(full_table_name)
+        logger.info(f"GOLD: {table_name} written to {full_table_name} ({row_count:,} rows)")
     except Exception as e:
         logger.error(f"Failed to write gold table {table_name}: {str(e)}")
+        raise
+
+
+def write_bronze_table(
+    df: DataFrame,
+    table_name: str,
+    mode: str = "overwrite",
+):
+    """
+    BRONZE LAYER: Write DataFrame to Delta table in bronze schema.
+
+    Used for incremental loading - persists raw data from source.
+
+    Args:
+        df: DataFrame to persist
+        table_name: Target table name (without schema prefix)
+        mode: Write mode ('overwrite', 'append', 'merge'). Default: 'overwrite'
+
+    Raises:
+        Exception: If write operation fails
+    """
+    logger.info(f"BRONZE: Writing {table_name}")
+    try:
+        row_count = df.count()
+        full_table_name = f"wheelie.bronze.{table_name}"
+
+        df.write.format("delta").mode(mode).option("overwriteSchema", "true").saveAsTable(full_table_name)
+
+        logger.info(f"BRONZE: {table_name} written to {full_table_name} ({row_count:,} rows)")
+    except Exception as e:
+        logger.error(f"Failed to write bronze table {table_name}: {str(e)}")
         raise
