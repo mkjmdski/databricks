@@ -125,18 +125,18 @@ def transform_staff_to_gold(staff_bronze: DataFrame, address_with_location: Data
     Returns:
         Gold dim_staff DataFrame
     """
-    return staff_bronze.join(
+    return staff_bronze.alias("staff").join(
         address_with_location, "address_id", "left"
     ).select(
-        col("staff_id"),
-        col("first_name").alias("staff_first_name"),
-        col("last_name").alias("staff_last_name"),
-        col("email").alias("staff_email"),
+        col("staff.staff_id").alias("staff_id"),
+        col("staff.first_name").alias("staff_first_name"),
+        col("staff.last_name").alias("staff_last_name"),
+        col("staff.email").alias("staff_email"),
         col("city").alias("staff_city"),
         col("country").alias("staff_country"),
         col("full_address").alias("staff_full_address"),
-        col("create_date"),
-        col("last_update")
+        col("staff.create_date").alias("create_date"),
+        col("staff.last_update").alias("last_update")
     ).withColumn("staff_key", xxhash64(col("staff_id")))
 
 
