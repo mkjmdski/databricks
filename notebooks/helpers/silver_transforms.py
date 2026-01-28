@@ -169,7 +169,7 @@ def transform_store_to_gold(store_bronze: DataFrame, address_with_location: Data
         )
         .select(
             col("store.store_id").alias("store_id"),
-            col("store_manager_id"),
+            col("store.store_manager_id"),
             col("store_manager_first_name"),
             col("store_manager_last_name"),
             col("full_address").alias("store_address"),
