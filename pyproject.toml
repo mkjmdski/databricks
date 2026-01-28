@@ -1,0 +1,85 @@
+[project]
+name = "wheelie-data-warehouse"
+version = "1.0.0"
+description = "Wheelie car rental data warehouse ETL pipeline (Databricks)"
+readme = "README.md"
+requires-python = ">=3.14"
+
+[tool.black]
+line-length = 120
+target-version = ['py314']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.git
+  | \.venv
+  | venv
+  | build
+  | dist
+  | \.eggs
+)/
+'''
+
+[tool.ruff]
+# Same as Black
+line-length = 120
+
+[tool.ruff.lint]
+# Enable pycodestyle (`E`), Pyflakes (`F`), and isort (`I`)
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "I",   # isort
+    "W",   # pycodestyle warnings
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501", # line too long (handled by black)
+    "B008", # do not perform function calls in argument defaults (common in PySpark)
+    "B905", # zip() without explicit strict parameter (not available in Python 3.8)
+    "F821", # undefined name (dbutils.display is Databricks-specific)
+]
+
+# Allow unused imports in __init__.py
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+"notebooks/**/*.py" = ["E402"]   # Allow imports not at top (Databricks pattern)
+
+[tool.ruff.lint.isort]
+known-first-party = ["helpers"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+# Indent with spaces
+indent-style = "space"
+# Like Black, respect magic trailing commas
+skip-magic-trailing-comma = false
+# Like Black, automatically detect line endings
+line-ending = "auto"
+
+# Optional: pytest configuration if you add unit tests later
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers"
+
+# Optional: mypy configuration for type checking
+[tool.mypy]
+python_version = "3.14"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false # Set to true for stricter typing
+ignore_missing_imports = true # Required for PySpark
+
+[[tool.mypy.overrides]]
+module = "pyspark.*"
+ignore_missing_imports = true

@@ -2,10 +2,14 @@
 Database connection and data loading utilities.
 Implements bronze→silver→gold medallion pattern helpers.
 """
+
+import logging
+from contextlib import suppress
+from typing import Optional
+
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import current_timestamp, lit
-from typing import Optional
-import logging
+
 
 # Get logger
 logger = logging.getLogger("wheelie_etl")
@@ -27,10 +31,15 @@ def create_connection(spark, dbutils):
         Exception: If connection creation fails
     """
     try:
-        return spark.read.format("jdbc") \
-            .option("url", f"jdbc:mysql://{dbutils.secrets.get('wheelie', 'MYSQL_HOST')}/{dbutils.secrets.get('wheelie', 'MYSQL_DB')}") \
-            .option("user", dbutils.secrets.get('wheelie', 'MYSQL_USERNAME')) \
-            .option("password", dbutils.secrets.get('wheelie', 'MYSQL_PASSWORD'))
+        return (
+            spark.read.format("jdbc")
+            .option(
+                "url",
+                f"jdbc:mysql://{dbutils.secrets.get('wheelie', 'MYSQL_HOST')}/{dbutils.secrets.get('wheelie', 'MYSQL_DB')}",
+            )
+            .option("user", dbutils.secrets.get("wheelie", "MYSQL_USERNAME"))
+            .option("password", dbutils.secrets.get("wheelie", "MYSQL_PASSWORD"))
+        )
     except Exception as e:
         logger.error(f"Failed to create connection: {str(e)}")
         raise
@@ -57,8 +66,7 @@ def load_bronze_table(conn, table_name: str) -> DataFrame:
     logger.info(f"BRONZE: Loading {table_name}")
     try:
         df = conn.option("dbtable", table_name).load()
-        df_bronze = df.withColumn("_ingestion_ts", current_timestamp()) \
-                      .withColumn("_source", lit("mysql_wheelie"))
+        df_bronze = df.withColumn("_ingestion_ts", current_timestamp()).withColumn("_source", lit("mysql_wheelie"))
         row_count = df_bronze.count()
         logger.info(f"BRONZE: {table_name} loaded ({row_count:,} rows)")
         return df_bronze
@@ -67,7 +75,13 @@ def load_bronze_table(conn, table_name: str) -> DataFrame:
         raise
 
 
-def write_gold_table(df: DataFrame, table_name: str, mode: str = "overwrite", display_data: bool = False):
+def write_gold_table(
+    df: DataFrame,
+    table_name: str,
+    mode: str = "overwrite",
+    display_data: bool = False,
+    partition_by: Optional[list] = None,
+):
     """
     GOLD LAYER: Write DataFrame to Delta table in data warehouse.
 
@@ -76,21 +90,33 @@ def write_gold_table(df: DataFrame, table_name: str, mode: str = "overwrite", di
         table_name: Target table name (without schema prefix)
         mode: Write mode ('overwrite', 'append', 'merge'). Default: 'overwrite'
         display_data: Whether to display DataFrame before writing. Default: False
+        partition_by: Optional list of column names to partition by.
+                      Recommended only for large tables (>100k rows).
+                      Example: ['service_date'] for fact_service
 
     Raises:
         Exception: If write operation fails
+
+    Note:
+        For tables < 100k rows, partitioning may reduce performance.
+        fact_service (16k rows) is borderline - partitioning is optional.
     """
     logger.info(f"GOLD: Writing {table_name}")
     try:
         row_count = df.count()
 
         if display_data:
-            display(df)
+            with suppress(NameError):
+                display(df)  # Databricks-specific function, ignore in linting
 
-        df.write.format("delta") \
-            .mode(mode) \
-            .option("overwriteSchema", "true") \
-            .saveAsTable(f"wheelie.data_warehouse.{table_name}")
+        writer = df.write.format("delta").mode(mode).option("overwriteSchema", "true")
+
+        # Apply partitioning if specified
+        if partition_by:
+            logger.info(f"GOLD: Partitioning {table_name} by {partition_by}")
+            writer = writer.partitionBy(*partition_by)
+
+        writer.saveAsTable(f"wheelie.data_warehouse.{table_name}")
         logger.info(f"GOLD: {table_name} written ({row_count:,} rows)")
     except Exception as e:
         logger.error(f"Failed to write gold table {table_name}: {str(e)}")
