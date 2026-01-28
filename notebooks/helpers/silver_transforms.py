@@ -156,27 +156,27 @@ def transform_store_to_gold(store_bronze: DataFrame, address_with_location: Data
     from pyspark.sql.functions import current_timestamp
 
     return (
-        store_bronze
+        store_bronze.alias("store")
         .join(address_with_location, "address_id", "left")
         .join(
             staff_bronze.select(
-                col("staff_id").alias("manager_id"),
+                col("staff_id").alias("store_manager_staff_id"),
                 col("first_name").alias("store_manager_first_name"),
                 col("last_name").alias("store_manager_last_name")
             ),
-            store_bronze.manager_staff_id == col("manager_id"),
+            col("store.manager_id") == col("store_manager_staff_id"),
             "left"
         )
         .select(
-            col("store_id"),
-            col("manager_id"),
+            col("store.store_id").alias("store_id"),
+            col("store_manager_staff_id"),
             col("store_manager_first_name"),
             col("store_manager_last_name"),
             col("full_address").alias("store_address"),
             col("city"),
             col("country"),
             col("postal_code"),
-            col("last_update")
+            col("store.last_update").alias("last_update")
         )
         .withColumn("store_key", xxhash64(col("store_id")))
         .withColumn("effective_date", current_timestamp())
@@ -211,19 +211,19 @@ def transform_car_to_gold(inventory_silver: DataFrame, car_bronze: DataFrame,
 
     # Join inventory with car and equipment
     return (
-        inventory_silver
-        .join(car_bronze, "car_id", "left")
+        inventory_silver.alias("inv")
+        .join(car_bronze.alias("car"), "car_id", "left")
         .join(equipment_agg, "inventory_id", "left")
         .select(
-            col("inventory_id"),
-            col("car_id"),
-            col("brand"),
-            col("model"),
-            col("production_year"),
-            col("colour"),
-            col("fuel_type"),
+            col("inv.inventory_id").alias("inventory_id"),
+            col("inv.car_id").alias("car_id"),
+            col("car.brand").alias("brand"),
+            col("car.model").alias("model"),
+            col("car.production_year").alias("production_year"),
+            col("car.colour").alias("colour"),
+            col("inv.fuel_type").alias("fuel_type"),
             col("equipment_list"),
-            col("last_update")
+            col("inv.last_update").alias("last_update")
         )
         .withColumn("car_key", xxhash64(col("inventory_id")))
     )
