@@ -4,5 +4,6 @@ CREATE CATALOG IF NOT EXISTS wheelie;
 GRANT ALL PRIVILEGES ON CATALOG wheelie TO `mm151@st.amu.edu.pl`;
 GRANT ALL PRIVILEGES ON CATALOG wheelie TO `sebpie2@st.amu.edu.pl`;
 GRANT ALL PRIVILEGES ON CATALOG wheelie TO `tr32342@st.amu.edu.pl`;
+GRANT ALL PRIVILEGES ON CATALOG wheelie TO `mikmlo@st.amu.edu.pl`;
 GRANT ALL PRIVILEGES ON CATALOG wheelie TO `a662d958-d69f-42df-b30c-66cb1c96944e`;
 CREATE SCHEMA IF NOT EXISTS wheelie.data_warehouse;
