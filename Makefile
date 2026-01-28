@@ -15,34 +15,29 @@ help:
 # Install dependencies from pyproject.toml
 install:
 	@echo "Installing development dependencies..."
-	if [! -d .venv ]; then python3 -m venv .venv; fi
-	source .venv/bin/activate
-	pip install --upgrade pip
+	if [ ! -d .venv ]; then python3 -m venv .venv; fi && . .venv/bin/activate && \
+	pip install --upgrade pip && \
 	pip install black ruff pre-commit pytest
 
 # Run Black formatter (check only)
 format:
 	@echo "Formatting code with Black..."
-	source .venv/bin/activate
-	black notebooks/helpers/ --line-length 120
+	. .venv/bin/activate && black notebooks/helpers/ --line-length 120
 
 # Check formatting without changes
 format-check:
 	@echo "Checking code format..."
-	source .venv/bin/activate
-	black notebooks/helpers/ --check --line-length 120
+	. .venv/bin/activate && black notebooks/helpers/ --check --line-length 120
 
 # Run Ruff linter (check only)
 lint:
 	@echo "Running Ruff linter..."
-	source .venv/bin/activate
-	ruff check notebooks/helpers/
+	. .venv/bin/activate && ruff check notebooks/helpers/
 
 # Run Ruff linter with auto-fix
 lint-fix:
 	@echo "Running Ruff linter with auto-fix..."
-	source .venv/bin/activate
-	ruff check notebooks/helpers/ --fix
+	. .venv/bin/activate && ruff check notebooks/helpers/ --fix
 
 # Run all checks (format + lint)
 check: format-check lint
@@ -57,7 +52,3 @@ clean:
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	@echo "✅ Cleanup complete"
 
-# Run tests (placeholder for future implementation)
-test:
-	@echo "Running tests..."
-	pytest tests/ -v

@@ -1,28 +1,20 @@
 Table "fact_rental" {
-  "ID" int(10) [pk, not null, increment]
-  "rental_id" int(10) [not null, note: "Business key from source system"]
-
-  // Foreign Keys to Dimensions
-  "customer_key" int(10) [not null, note: "FK to dim_customer (surrogate key for SCD Type 2)"]
-  "car_key" int(10) [not null, note: "FK to dim_car"]
-  "staff_key" int(10) [not null, note: "FK to dim_staff"]
-  "store_key" int(10) [not null, note: "FK to dim_store (rental location)"]
-
-  "rental_date_key" int(10) [not null, note: "FK to dim_date for rental date"]
-  "return_date_key" int(10) [note: "FK to dim_date for return date (nullable if not yet returned)"]
-  "payment_date_key" int(10) [note: "FK to dim_date for payment date (nullable if payment not yet made)"]
-  "payment_deadline_date_key" int(10) [note: "FK to dim_date for payment deadline date"]
-
-  "rental_date" date [not null, note: "Date when rental started"]
-  "return_date" date [note: "Date when car was returned (nullable if not yet returned)"]
-  "payment_date" date [note: "Date when payment was made (nullable if payment not yet made)"]
-  "payment_deadline_date" date [note: "Deadline date for payment"]
-
-  "rental_amount" decimal(12,2) [note: "Total rental amount"]
-  "payment_amount" decimal(12,2) [note: "Payment amount (from payment table)"]
-  "rental_rate" decimal(12,2) [not null, note: "Rental rate charged for this transaction"]
-  "rental_duration" int(5) [note: "Calculated: return_date - rental_date in days (NULL if not returned)"]
-  "rental_delay_days" int(5) [note: "Calculated: return_date - expected_return_date (delay in return, NULL if not returned or on time)"]
+  "rental_key" bigint [pk, not null]
+  "rental_id" int(10) [not null]
+  "customer_key" bigint [not null]
+  "car_key" bigint [not null]
+  "staff_key" bigint [not null]
+  "store_key" bigint [not null]
+  "rental_date_key" bigint [not null]
+  "return_date_key" bigint
+  "payment_date_key" bigint
+  "payment_deadline_date_key" bigint [not null]
+  "rental_date" date [not null]
+  "rental_amount" decimal(12,2)
+  "payment_amount" decimal(12,2)
+  "rental_rate" decimal(12,2) [not null]
+  "rental_duration" int(5)
+  "payment_delay_duration" int(5)
 
   Indexes {
     rental_id [name: "fact_rental_business_key_IDX", unique]
@@ -30,58 +22,55 @@ Table "fact_rental" {
     car_key [name: "fact_rental_car_IDX"]
     staff_key [name: "fact_rental_staff_IDX"]
     store_key [name: "fact_rental_store_IDX"]
-    rental_date_key [name: "fact_rental_rental_date_IDX"]
-    return_date_key [name: "fact_rental_return_date_IDX"]
-    payment_date_key [name: "fact_rental_payment_date_IDX"]
+    rental_date [name: "fact_rental_rental_date_IDX"]
+  }
+}
+
+Table "fact_service" {
+  "service_key" bigint [pk, not null]
+  "service_id" int(10) [not null]
+  "car_key" bigint [not null]
+  "service_date" date [not null]
+  "service_type" varchar(100) [not null]
+  "service_cost" decimal(18,4) [not null]
+
+  Indexes {
+    service_id [name: "fact_service_business_key_IDX", unique]
+    car_key [name: "fact_service_car_IDX"]
+    service_date [name: "fact_service_date_IDX"]
   }
 }
 
 Table "dim_customer" {
-  "ID" int(10) [pk, not null, increment, note: "Surrogate key for SCD Type 2"]
-  "customer_id" int(10) [not null, note: "Business key from source system (natural key)"]
-
-  "first_name" varchar(50) [note: "From source customer table"]
-  "last_name" varchar(50) [note: "From source customer table"]
-  "email" varchar(50) [note: "From source customer table"]
-  "birth_date" date [note: "From source customer table - used to calculate customer age"]
-
-  "city" varchar(50) [note: "Customer's city - denormalized from address->city"]
-  "country" varchar(50) [note: "Customer's country - denormalized from address->city->country"]
-
-  "effective_date" datetime [not null, note: "Start date when this version became effective"]
-  "end_date" datetime [note: "End date when this version expired (NULL for current record)"]
-  "is_current" boolean [not null, default: true, note: "Flag indicating current/active record"]
-
-  "create_date" datetime [not null, note: "From source customer.create_date"]
-  "last_update" datetime [not null, note: "From source customer.last_update"]
-
+  "customer_key" bigint [pk, not null]
+  "customer_id" int(10) [not null]
+  "customer_first_name" varchar(50)
+  "customer_last_name" varchar(50)
+  "customer_email" varchar(50)
+  "birth_date" date
+  "customer_address" varchar(150)
+  "customer_city" varchar(50)
+  "customer_country" varchar(50)
 
   Indexes {
-    customer_id [name: "dim_customer_business_key_IDX"]
-    (customer_id, is_current) [name: "dim_customer_current_IDX"]
-    effective_date [name: "dim_customer_effective_date_IDX"]
+    customer_id [name: "dim_customer_business_key_IDX", unique]
   }
 }
 
 Table "dim_car" {
-  "ID" int(10) [pk, not null, increment, note: "Surrogate key"]
-  "inventory_id" int(10) [not null, note: "Business key from source inventory table"]
-
-  "car_id" int(10) [note: "From source inventory.car_id -> car.car_id"]
-  "producer" varchar(50) [note: "From source car.producer - car manufacturer/brand"]
-  "model" varchar(50) [note: "From source car.model - car model name"]
-  "rental_rate" decimal(12,2) [note: "From source car.rental_rate - base rental rate"]
-
-  "production_year" int(4) [note: "From source inventory.production_year - year of production"]
-  "fuel_type" varchar(15) [note: "From source inventory.fuel_type - type of fuel"]
-  "license_plates" varchar(10) [note: "From source inventory.license_plates - physical identification"]
-  "purchase_price" decimal(18,2) [note: "From source inventory.purchase_price - original purchase cost"]
-  "sell_price" decimal(18,2) [note: "From source inventory.sell_price - potential sell price"]
-  "store_id" int(10) [note: "From source inventory.store_id - store where car is located (denormalized, no FK)"]
-
-  "create_date" datetime [not null, note: "From source inventory.create_date"]
-  "last_update" datetime [note: "From source inventory.last_update"]
-
+  "car_key" bigint [pk, not null]
+  "car_id" int(10)
+  "inventory_id" int(10) [not null]
+  "producer" varchar(50)
+  "model" varchar(50)
+  "rental_rate" decimal(12,2)
+  "production_year" int(4)
+  "fuel_type" varchar(15)
+  "license_plates" varchar(10)
+  "purchase_price" decimal(18,2)
+  "sell_price" decimal(18,2)
+  "store_id" int(10)
+  "last_update" datetime
 
   Indexes {
     inventory_id [name: "dim_car_business_key_IDX", unique]
@@ -92,147 +81,240 @@ Table "dim_car" {
 }
 
 Table "dim_staff" {
-  "ID" int(10) [pk, not null, increment, note: "Surrogate key"]
-  "staff_id" int(10) [not null, note: "Business key from source system"]
-
-  "first_name" varchar(50) [note: "From source staff.first_name"]
-  "last_name" varchar(50) [note: "From source staff.last_name"]
-  "email" varchar(50) [note: "From source staff.email"]
-  "hired_date" date [note: "From source staff.hired_date - date when employee was hired"]
-
-  "store_id" int(10) [note: "From source staff.store_id - store where employee works (denormalized, no FK)"]
-
-  "address_id" int(10) [note: "From source staff.address_id"]
-  "city" varchar(50) [note: "Denormalized from address->city"]
-  "country" varchar(50) [note: "Denormalized from address->city->country"]
-
-  "manager_id" int(10) [note: "From source staff.manager_id - direct manager's staff_id"]
-  "manager_staff_key" int(10) [note: "FK to dim_staff - direct manager (self-referencing)"]
-  "manager_name" varchar(100) [note: "Denormalized manager full name for reporting convenience"]
-
-  "last_update" datetime [not null, note: "From source staff.last_update"]
+  "staff_key" bigint [pk, not null]
+  "staff_id" int(10) [not null]
+  "store_id" int(10)
+  "staff_first_name" varchar(50)
+  "staff_last_name" varchar(50)
+  "staff_email" varchar(50)
+  "hired_date" date
+  "staff_address" varchar(150)
+  "staff_city" varchar(50)
+  "staff_country" varchar(50)
+  "staff_manager_first_name" varchar(50)
+  "staff_manager_last_name" varchar(50)
 
   Indexes {
     staff_id [name: "dim_staff_business_key_IDX", unique]
     store_id [name: "dim_staff_store_id_IDX"]
-    manager_staff_key [name: "dim_staff_manager_IDX"]
-    manager_id [name: "dim_staff_manager_id_IDX"]
   }
 }
 
 Table "dim_store" {
-  "ID" int(10) [pk, not null, increment, note: "Surrogate key"]
-  "store_id" int(10) [not null, note: "Business key from source system"]
-
-  // Store Location Information (Denormalized from address, city, country tables)
-  "address_id" int(10) [note: "From source store.address_id"]
-  "address" varchar(100) [note: "Denormalized from address.address"]
-  "address2" varchar(50) [note: "Denormalized from address.address2"]
-  "city" varchar(50) [not null, note: "Denormalized from address->city - key for geographic analysis"]
-  "country" varchar(50) [not null, note: "Denormalized from address->city->country"]
-  "postal_code" varchar(10) [note: "Denormalized from address.postal_code"]
-
-  "store_manager_id" int(10) [note: "From source store.store_manager_id - manager's staff_id"]
-
-  "last_update" datetime [not null, note: "From source store.last_update"]
-
+  "store_key" bigint [pk, not null]
+  "store_id" int(10) [not null]
+  "manager_id" int(10)
+  "store_manager_first_name" varchar(50)
+  "store_manager_last_name" varchar(50)
+  "store_address" varchar(150)
+  "city" varchar(50) [not null]
+  "country" varchar(50) [not null]
+  "postal_code" varchar(10)
+  "last_update" datetime [not null]
+  "effective_date" datetime [not null]
+  "end_date" datetime
+  "is_current" boolean [not null, default: true]
 
   Indexes {
-    store_id [name: "dim_store_business_key_IDX", unique]
+    store_id [name: "dim_store_business_key_IDX"]
+    (store_id, is_current) [name: "dim_store_current_IDX"]
     city [name: "dim_store_city_IDX"]
     country [name: "dim_store_country_IDX"]
   }
 }
 
 Table "dim_date" {
-  "ID" int(10) [pk, not null, increment, note: "Surrogate key (auto-increment)"]
-  "date" date [not null, unique, note: "Actual date value"]
-
-  "day_of_week" int(1) [note: "1=Monday, 7=Sunday (ISO 8601)"]
-  "day_of_week_name" varchar(10) [note: "Monday, Tuesday, Wednesday, etc."]
-  "day_of_month" int(2) [note: "1-31"]
-  "week_of_year" int(2) [note: "1-53"]
-  "month" int(2) [note: "1-12"]
-  "month_name" varchar(10) [note: "January, February, etc."]
-  "quarter" int(1) [note: "1, 2, 3, or 4"]
-  "year" int(4) [note: "Full year (e.g., 2024)"]
-
-  "is_weekend" boolean [not null, note: "TRUE if Saturday or Sunday"]
-
-  "is_pre_covid" boolean [not null, note: "TRUE for dates before 2020-03-01"]
-  "is_covid" boolean [not null, note: "TRUE for dates from 2020-03-01 to 2022-06-30"]
-  "is_post_covid" boolean [not null, note: "TRUE for dates after 2022-06-30"]
+  "date_key" bigint [pk, not null]
+  "date" date [not null, unique]
+  "day_of_week" int(1)
+  "day_of_week_name" varchar(10)
+  "day_of_month" int(2)
+  "week_of_year" int(2)
+  "month" int(2)
+  "month_name" varchar(10)
+  "quarter" int(1)
+  "year" int(4)
+  "is_weekend" boolean [not null]
+  "is_pre_covid" boolean [not null]
+  "is_covid" boolean [not null]
+  "is_post_covid" boolean [not null]
 
   Indexes {
     date [name: "dim_date_date_IDX", unique]
     (year, month) [name: "dim_date_year_month_IDX"]
     (year, quarter) [name: "dim_date_year_quarter_IDX"]
-    is_pre_covid [name: "dim_date_precovid_IDX"]
-    is_covid [name: "dim_date_covid_IDX"]
-    is_post_covid [name: "dim_date_postcovid_IDX"]
   }
 }
 
-Table "dim_eq" {
-  "ID" int(10) [pk, not null, increment, note: "Surrogate key"]
-  "equipment_id" int(10) [not null, note: "Business key from source system"]
-
-  "name" varchar(50) [not null, note: "From source equipment.name - equipment name (GPS, Leather Seats, Sunroof, etc.)"]
-  "type" varchar(50) [note: "From source equipment.type - category: Safety, Comfort, Technology, Performance"]
-  "version" varchar(50) [note: "From source equipment.version - equipment version"]
-
-  "create_date" datetime [not null, note: "From source equipment.create_date"]
-  "last_update" datetime [not null, note: "From source equipment.last_update"]
-
+Table "dim_service_date" {
+  "service_date_key" bigint [pk, not null]
+  "service_date" date [not null, unique]
+  "day_of_week" int(1)
+  "day_of_week_name" varchar(10)
+  "day_of_month" int(2)
+  "week_of_year" int(2)
+  "month" int(2)
+  "month_name" varchar(10)
+  "quarter" int(1)
+  "year" int(4)
+  "is_weekend" boolean [not null]
+  "is_pre_covid" boolean [not null]
+  "is_covid" boolean [not null]
+  "is_post_covid" boolean [not null]
 
   Indexes {
-    equipment_id [name: "dim_eq_business_key_IDX", unique]
-    type [name: "dim_eq_type_IDX"]
+    service_date [name: "dim_service_date_date_IDX", unique]
   }
 }
 
-Table "dim_eq_group" {
-  "ID" int(10) [pk, not null, increment, note: "Surrogate key"]
-  "eq_key" int(10) [not null, note: "FK to dim_eq - equipment item in this group"]
+Table "dim_rental_date" {
+  "rental_date_key" bigint [pk, not null]
+  "rental_date" date [not null, unique]
+  "day_of_week" int(1)
+  "day_of_week_name" varchar(10)
+  "day_of_month" int(2)
+  "week_of_year" int(2)
+  "month" int(2)
+  "month_name" varchar(10)
+  "quarter" int(1)
+  "year" int(4)
+  "is_weekend" boolean [not null]
+  "is_pre_covid" boolean [not null]
+  "is_covid" boolean [not null]
+  "is_post_covid" boolean [not null]
 
   Indexes {
-    eq_key [name: "dim_eq_group_eq_IDX"]
-    (ID, eq_key) [name: "dim_eq_group_composite_IDX"]
+    rental_date [name: "dim_rental_date_date_IDX", unique]
+  }
+}
+
+Table "dim_return_date" {
+  "return_date_key" bigint [pk, not null]
+  "return_date" date [not null, unique]
+  "day_of_week" int(1)
+  "day_of_week_name" varchar(10)
+  "day_of_month" int(2)
+  "week_of_year" int(2)
+  "month" int(2)
+  "month_name" varchar(10)
+  "quarter" int(1)
+  "year" int(4)
+  "is_weekend" boolean [not null]
+  "is_pre_covid" boolean [not null]
+  "is_covid" boolean [not null]
+  "is_post_covid" boolean [not null]
+
+  Indexes {
+    return_date [name: "dim_return_date_date_IDX", unique]
+  }
+}
+
+Table "dim_payment_date" {
+  "payment_date_key" bigint [pk, not null]
+  "payment_date" date [not null, unique]
+  "day_of_week" int(1)
+  "day_of_week_name" varchar(10)
+  "day_of_month" int(2)
+  "week_of_year" int(2)
+  "month" int(2)
+  "month_name" varchar(10)
+  "quarter" int(1)
+  "year" int(4)
+  "is_weekend" boolean [not null]
+  "is_pre_covid" boolean [not null]
+  "is_covid" boolean [not null]
+  "is_post_covid" boolean [not null]
+
+  Indexes {
+    payment_date [name: "dim_payment_date_date_IDX", unique]
+  }
+}
+
+Table "dim_payment_deadline_date" {
+  "payment_deadline_date_key" bigint [pk, not null]
+  "payment_deadline_date" date [not null, unique]
+  "day_of_week" int(1)
+  "day_of_week_name" varchar(10)
+  "day_of_month" int(2)
+  "week_of_year" int(2)
+  "month" int(2)
+  "month_name" varchar(10)
+  "quarter" int(1)
+  "year" int(4)
+  "is_weekend" boolean [not null]
+  "is_pre_covid" boolean [not null]
+  "is_covid" boolean [not null]
+  "is_post_covid" boolean [not null]
+
+  Indexes {
+    payment_deadline_date [name: "dim_payment_deadline_date_date_IDX", unique]
+  }
+}
+
+Table "dim_equipment" {
+  "equipment_key" bigint [pk, not null]
+  "equipment_id" int(10) [not null]
+  "name" varchar(50) [not null]
+  "type" varchar(50)
+  "version" varchar(50)
+
+  Indexes {
+    equipment_id [name: "dim_equipment_business_key_IDX", unique]
+    type [name: "dim_equipment_type_IDX"]
+  }
+}
+
+Table "bridge_equipment_group_equipment" {
+  "equipment_group_key" bigint [not null]
+  "equipment_key" bigint [not null]
+
+  Indexes {
+    (equipment_group_key, equipment_key) [pk, name: "bridge_equipment_group_equipment_PK"]
+    equipment_group_key [name: "bridge_equipment_group_IDX"]
+    equipment_key [name: "bridge_equipment_IDX"]
   }
 }
 
 Table "bridge_staff_hierarchy" {
-  "staff_key" int(10) [not null, note: "FK to dim_staff.ID - employee"]
-  "ancestor_staff_key" int(10) [not null, note: "FK to dim_staff.ID - manager at any level in hierarchy"]
-  "depth" int(5) [not null, note: "Number of levels between staff and ancestor (0 = self)"]
+  "staff_key" bigint [not null]
+  "staff_first_name" varchar(50)
+  "staff_last_name" varchar(50)
+  "staff_manager_key" bigint [not null]
+  "staff_manager_first_name" varchar(50)
+  "staff_manager_last_name" varchar(50)
+  "level" int(5) [not null]
+
   Indexes {
-    (staff_key, ancestor_staff_key) [pk, name: "bridge_staff_hierarchy_PK"]
+    (staff_key, staff_manager_key, level) [pk, name: "bridge_staff_hierarchy_PK"]
     staff_key [name: "bridge_staff_hierarchy_staff_IDX"]
-    ancestor_staff_key [name: "bridge_staff_hierarchy_ancestor_IDX"]
-    depth [name: "bridge_staff_hierarchy_depth_IDX"]
+    staff_manager_key [name: "bridge_staff_hierarchy_manager_IDX"]
   }
 }
 
-Table "bridge_eq_group" {
-  "car_key" int(10) [not null, note: "FK to dim_car.ID"]
-  "eq_group_key" int(10) [not null, note: "FK to dim_eq_group.ID - equipment group for this car"]
+Table "bridge_car_equipment" {
+  "car_key" bigint [not null]
+  "equipment_group_key" bigint [not null]
+
   Indexes {
-    (car_key, eq_group_key) [pk, name: "bridge_eq_group_PK"]
-    car_key [name: "bridge_eq_group_car_IDX", unique]
-    eq_group_key [name: "bridge_eq_group_group_IDX"]
+    car_key [pk, name: "bridge_car_equipment_PK", unique]
+    equipment_group_key [name: "bridge_car_equipment_group_IDX"]
   }
 }
-Ref "fact_rental_to_dim_customer": "dim_customer"."ID" < "fact_rental"."customer_key"
-Ref "fact_rental_to_dim_car": "dim_car"."ID" < "fact_rental"."car_key"
-Ref "fact_rental_to_dim_staff": "dim_staff"."ID" < "fact_rental"."staff_key"
-Ref "fact_rental_to_dim_store": "dim_store"."ID" < "fact_rental"."store_key"
-Ref "fact_rental_to_dim_date_rental": "dim_date"."ID" < "fact_rental"."rental_date_key"
-Ref "fact_rental_to_dim_date_return": "dim_date"."ID" < "fact_rental"."return_date_key"
-Ref "fact_rental_to_dim_date_payment": "dim_date"."ID" < "fact_rental"."payment_date_key"
-Ref "fact_rental_to_dim_date_payment_deadline": "dim_date"."ID" < "fact_rental"."payment_deadline_date_key"
-Ref "dim_staff_to_dim_staff_manager": "dim_staff"."ID" < "dim_staff"."manager_staff_key"
-Ref "bridge_staff_hierarchy_to_staff": "dim_staff"."ID" < "bridge_staff_hierarchy"."staff_key"
-Ref "bridge_staff_hierarchy_to_ancestor": "dim_staff"."ID" < "bridge_staff_hierarchy"."ancestor_staff_key"
-Ref "bridge_eq_group_to_dim_car": "dim_car"."ID" < "bridge_eq_group"."car_key"
-Ref "bridge_eq_group_to_dim_eq_group": "dim_eq_group"."ID" < "bridge_eq_group"."eq_group_key"
-Ref "dim_eq_group_to_dim_eq": "dim_eq"."ID" < "dim_eq_group"."eq_key"
+Ref "fact_rental_to_dim_customer": "dim_customer"."customer_key" < "fact_rental"."customer_key"
+Ref "fact_rental_to_dim_car": "dim_car"."car_key" < "fact_rental"."car_key"
+Ref "fact_rental_to_dim_staff": "dim_staff"."staff_key" < "fact_rental"."staff_key"
+Ref "fact_rental_to_dim_store": "dim_store"."store_key" < "fact_rental"."store_key"
+Ref "fact_rental_to_dim_rental_date": "dim_rental_date"."rental_date_key" < "fact_rental"."rental_date_key"
+Ref "fact_rental_to_dim_return_date": "dim_return_date"."return_date_key" < "fact_rental"."return_date_key"
+Ref "fact_rental_to_dim_payment_date": "dim_payment_date"."payment_date_key" < "fact_rental"."payment_date_key"
+Ref "fact_rental_to_dim_payment_deadline_date": "dim_payment_deadline_date"."payment_deadline_date_key" < "fact_rental"."payment_deadline_date_key"
+
+Ref "fact_service_to_dim_car": "dim_car"."car_key" < "fact_service"."car_key"
+
+Ref "bridge_staff_hierarchy_to_staff": "dim_staff"."staff_key" < "bridge_staff_hierarchy"."staff_key"
+Ref "bridge_staff_hierarchy_to_manager": "dim_staff"."staff_key" < "bridge_staff_hierarchy"."staff_manager_key"
+
+Ref "bridge_car_equipment_to_car": "dim_car"."car_key" < "bridge_car_equipment"."car_key"
+Ref "bridge_car_equipment_to_group": "bridge_equipment_group_equipment"."equipment_group_key" < "bridge_car_equipment"."equipment_group_key"
+
+Ref "bridge_equipment_group_to_equipment": "dim_equipment"."equipment_key" < "bridge_equipment_group_equipment"."equipment_key"

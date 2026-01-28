@@ -5,7 +5,6 @@ Implements bronze→silver→gold medallion pattern helpers.
 
 import logging
 from contextlib import suppress
-from typing import Optional
 
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import current_timestamp, lit
@@ -80,7 +79,7 @@ def write_gold_table(
     table_name: str,
     mode: str = "overwrite",
     display_data: bool = False,
-    partition_by: Optional[list] = None,
+    partition_by: list | None = None,
 ):
     """
     GOLD LAYER: Write DataFrame to Delta table in data warehouse.
