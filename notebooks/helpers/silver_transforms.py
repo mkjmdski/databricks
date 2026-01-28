@@ -160,16 +160,16 @@ def transform_store_to_gold(store_bronze: DataFrame, address_with_location: Data
         .join(address_with_location, "address_id", "left")
         .join(
             staff_bronze.select(
-                col("staff_id").alias("store_manager_staff_id"),
+                col("staff_id").alias("store_manager_id"),
                 col("first_name").alias("store_manager_first_name"),
                 col("last_name").alias("store_manager_last_name")
             ),
-            col("store.manager_id") == col("store_manager_staff_id"),
+            col("store.manager_id") == col("store_manager_id"),
             "left"
         )
         .select(
             col("store.store_id").alias("store_id"),
-            col("store_manager_staff_id"),
+            col("store_manager_id"),
             col("store_manager_first_name"),
             col("store_manager_last_name"),
             col("full_address").alias("store_address"),
