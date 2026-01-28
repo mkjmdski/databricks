@@ -100,17 +100,17 @@ def transform_customer_to_gold(customer_silver: DataFrame, address_with_location
     Returns:
         Gold dim_customer DataFrame with surrogate key
     """
-    return customer_silver.join(
-        address_with_location, "address_id", "left"
+    return customer_silver.alias("cust").join(
+        address_with_location.alias("addr"), "address_id", "left"
     ).select(
-        col("customer_id"),
-        col("first_name").alias("customer_first_name"),
-        col("last_name").alias("customer_last_name"),
-        col("email").alias("customer_email"),
-        col("birth_date"),
-        col("full_address").alias("customer_address"),
-        col("city").alias("customer_city"),
-        col("country").alias("customer_country")
+        col("cust.customer_id").alias("customer_id"),
+        col("cust.first_name").alias("customer_first_name"),
+        col("cust.last_name").alias("customer_last_name"),
+        col("cust.email").alias("customer_email"),
+        col("cust.birth_date").alias("birth_date"),
+        col("addr.full_address").alias("customer_address"),
+        col("addr.city").alias("customer_city"),
+        col("addr.country").alias("customer_country")
     ).withColumn("customer_key", xxhash64(col("customer_id")))
 
 
@@ -125,18 +125,31 @@ def transform_staff_to_gold(staff_bronze: DataFrame, address_with_location: Data
     Returns:
         Gold dim_staff DataFrame
     """
-    return staff_bronze.alias("staff").join(
-        address_with_location, "address_id", "left"
+    # Self-join to get manager information
+    staff_with_manager = staff_bronze.alias("staff").join(
+        staff_bronze.select(
+            col("staff_id").alias("mgr_id"),
+            col("first_name").alias("staff_manager_first_name"),
+            col("last_name").alias("staff_manager_last_name")
+        ).alias("mgr"),
+        col("staff.manager_id") == col("mgr.mgr_id"),
+        "left"
+    )
+    
+    return staff_with_manager.join(
+        address_with_location.alias("addr"), "address_id", "left"
     ).select(
         col("staff.staff_id").alias("staff_id"),
+        col("staff.store_id").alias("store_id"),
         col("staff.first_name").alias("staff_first_name"),
         col("staff.last_name").alias("staff_last_name"),
         col("staff.email").alias("staff_email"),
-        col("city").alias("staff_city"),
-        col("country").alias("staff_country"),
-        col("full_address").alias("staff_full_address"),
         col("staff.hired_date").alias("hired_date"),
-        col("staff.last_update").alias("last_update")
+        col("addr.full_address").alias("staff_address"),
+        col("addr.city").alias("staff_city"),
+        col("addr.country").alias("staff_country"),
+        col("mgr.staff_manager_first_name").alias("staff_manager_first_name"),
+        col("mgr.staff_manager_last_name").alias("staff_manager_last_name")
     ).withColumn("staff_key", xxhash64(col("staff_id")))
 
 
@@ -157,25 +170,25 @@ def transform_store_to_gold(store_bronze: DataFrame, address_with_location: Data
 
     return (
         store_bronze.alias("store")
-        .join(address_with_location, "address_id", "left")
+        .join(address_with_location.alias("addr"), "address_id", "left")
         .join(
             staff_bronze.select(
                 col("staff_id").alias("store_manager_id"),
                 col("first_name").alias("store_manager_first_name"),
                 col("last_name").alias("store_manager_last_name")
-            ),
-            col("store.manager_id") == col("store_manager_id"),
+            ).alias("mgr"),
+            col("store.store_manager_id") == col("mgr.store_manager_id"),
             "left"
         )
         .select(
             col("store.store_id").alias("store_id"),
-            col("store.store_manager_id"),
-            col("store_manager_first_name"),
-            col("store_manager_last_name"),
-            col("full_address").alias("store_address"),
-            col("city"),
-            col("country"),
-            col("postal_code"),
+            col("mgr.store_manager_id").alias("store_manager_id"),
+            col("mgr.store_manager_first_name").alias("store_manager_first_name"),
+            col("mgr.store_manager_last_name").alias("store_manager_last_name"),
+            col("addr.full_address").alias("store_address"),
+            col("addr.city").alias("city"),
+            col("addr.country").alias("country"),
+            col("addr.postal_code").alias("postal_code"),
             col("store.last_update").alias("last_update")
         )
         .withColumn("store_key", xxhash64(col("store_id")))
@@ -201,11 +214,11 @@ def transform_car_to_gold(inventory_silver: DataFrame, car_bronze: DataFrame,
     """
     # Aggregate equipment list per inventory
     equipment_agg = (
-        inventory_equipment_bronze
-        .join(equipment_bronze, "equipment_id", "left")
-        .groupBy("inventory_id")
+        inventory_equipment_bronze.alias("inv_eq")
+        .join(equipment_bronze.alias("eq"), "equipment_id", "left")
+        .groupBy("inv_eq.inventory_id")
         .agg(
-            concat_ws(", ", array_sort(collect_set(col("name")))).alias("equipment_list")
+            concat_ws(", ", array_sort(collect_set(col("eq.name")))).alias("equipment_list")
         )
     )
 
@@ -213,16 +226,19 @@ def transform_car_to_gold(inventory_silver: DataFrame, car_bronze: DataFrame,
     return (
         inventory_silver.alias("inv")
         .join(car_bronze.alias("car"), "car_id", "left")
-        .join(equipment_agg, "inventory_id", "left")
+        .join(equipment_agg.alias("eq_agg"), "inventory_id", "left")
         .select(
             col("inv.inventory_id").alias("inventory_id"),
             col("inv.car_id").alias("car_id"),
-            col("car.brand").alias("brand"),
+            col("car.producer").alias("producer"),
             col("car.model").alias("model"),
-            col("car.production_year").alias("production_year"),
-            col("car.colour").alias("colour"),
+            col("car.rental_rate").alias("rental_rate"),
+            col("inv.production_year").alias("production_year"),
             col("inv.fuel_type").alias("fuel_type"),
-            col("equipment_list"),
+            col("inv.license_plates").alias("license_plates"),
+            col("inv.purchase_price").alias("purchase_price"),
+            col("inv.sell_price").alias("sell_price"),
+            col("inv.store_id").alias("store_id"),
             col("inv.last_update").alias("last_update")
         )
         .withColumn("car_key", xxhash64(col("inventory_id")))
