@@ -30,6 +30,7 @@ class TableConfig:
         tracking_columns: For SCD2, columns that trigger new versions
         gold_table_name: Gold table name (defaults to dim_{table_name})
         silver_transform: Function to transform bronze→silver→gold DataFrame
+        dependencies: List of bronze table names needed for transformation
     """
 
     table_name: str
@@ -40,6 +41,7 @@ class TableConfig:
     tracking_columns: list[str] | None = None
     gold_table_name: str | None = None
     silver_transform: Callable[[DataFrame], DataFrame] | None = None
+    dependencies: list[str] | None = None
 
     def __post_init__(self):
         """Set defaults after initialization."""
@@ -135,7 +137,29 @@ class IncrementalPipeline:
                 logger.info(f"Applying silver transformations for {config.table_name}")
                 # Load current bronze state for transformation
                 df_bronze_current = self.spark.table(f"wheelie.bronze.{config.table_name}")
-                df_gold = config.silver_transform(df_bronze_current)
+
+                # Load dependencies if specified
+                if config.dependencies:
+                    logger.info(f"Loading {len(config.dependencies)} dependencies: {', '.join(config.dependencies)}")
+                    dep_dataframes = []
+                    for dep in config.dependencies:
+                        # Check if dependency exists in bronze, if not load it
+                        if not self.spark.catalog.tableExists(f"wheelie.bronze.{dep}"):
+                            logger.warning(f"Dependency {dep} not in bronze - loading now")
+                            df_dep = self.bronze_loader.load_incremental(
+                                table_name=dep, watermark_column="last_update", force_full=False
+                            )
+                            self.bronze_loader.merge_to_bronze(df=df_dep, table_name=dep, business_key=f"{dep}_id")
+                            load_type = (
+                                "FULL" if not self.bronze_loader.watermark_manager.has_watermark(dep) else "INCREMENTAL"
+                            )
+                            self.bronze_loader.update_watermark(
+                                table_name=dep, df=df_dep, watermark_column="last_update", load_type=load_type
+                            )
+                        dep_dataframes.append(self.spark.table(f"wheelie.bronze.{dep}"))
+                    df_gold = config.silver_transform(df_bronze_current, *dep_dataframes)
+                else:
+                    df_gold = config.silver_transform(df_bronze_current)
             else:
                 logger.info(f"No silver transformation - using bronze as-is for {config.table_name}")
                 df_gold = df_bronze_incremental
