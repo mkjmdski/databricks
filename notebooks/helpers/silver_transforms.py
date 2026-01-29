@@ -78,25 +78,45 @@ def clean_customer_silver(customer_bronze: DataFrame) -> DataFrame:
 
     return customer_bronze.withColumn(
         "email",
-        # Final cleanup: ensure only valid email characters remain
-        # Pattern: [a-zA-Z0-9._%+-]@[a-zA-Z0-9.-].[a-zA-Z]
-        regexp_replace(
-            translate(
-                regexp_replace(
+        # Mark invalid emails as NULL if they don't match the required pattern
+        when(
+            regexp_replace(
+                translate(
                     regexp_replace(
-                        regexp_replace(lower(col("email")), r"\s+", ""),  # 1. Lowercase and remove spaces
-                        r"\.{2,}",
-                        ".",  # 2. Fix multiple dots
+                        regexp_replace(
+                            regexp_replace(lower(col("email")), r"\s+", ""),  # 1. Lowercase and remove spaces
+                            r"\.{2,}",
+                            ".",  # 2. Fix multiple dots
+                        ),
+                        r"['`´]",
+                        "",  # 3. Remove apostrophes and backticks
                     ),
-                    r"['`´]",
-                    "",  # 3. Remove apostrophes and backticks
+                    accented,
+                    latin,  # 4. Transliterate accented chars
                 ),
-                accented,
-                latin,  # 4. Transliterate accented chars
+                r"[^a-z0-9._%+@-]",
+                "",  # 5. Remove any remaining invalid characters
+            ).rlike(r"^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"),
+            regexp_replace(
+                translate(
+                    regexp_replace(
+                        regexp_replace(
+                            regexp_replace(lower(col("email")), r"\s+", ""),
+                            r"\.{2,}",
+                            ".",
+                        ),
+                        r"['`´]",
+                        "",
+                    ),
+                    accented,
+                    latin,
+                ),
+                r"[^a-z0-9._%+@-]",
+                "",
             ),
-            r"[^a-z0-9._%+@-]",
-            "",  # 5. Remove any remaining invalid characters
-        ),
+        ).otherwise(
+            lit(None)
+        ),  # Set invalid emails to NULL
     )
 
 
