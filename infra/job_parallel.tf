@@ -1,5 +1,5 @@
-resource "databricks_job" "parallel_incremental_pipeline" {
-  name = "wheelie-parallel-load-and-validate"
+resource "databricks_job" "parallel_bronze_load" {
+  name = "parallel-bronze-load"
 
   run_as {
     service_principal_name = data.databricks_current_user.this.user_name
@@ -14,7 +14,7 @@ resource "databricks_job" "parallel_incremental_pipeline" {
   task {
     task_key = "parallel_bronze_car_inventory"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/car_inventory"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/car_inventory.ipynb"
       source        = "WORKSPACE"
     }
   }
@@ -22,7 +22,7 @@ resource "databricks_job" "parallel_incremental_pipeline" {
   task {
     task_key = "parallel_bronze_geo_staff_store"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/geo_staff_store"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/geo_staff_store.ipynb"
       source        = "WORKSPACE"
     }
   }
@@ -30,7 +30,7 @@ resource "databricks_job" "parallel_incremental_pipeline" {
   task {
     task_key = "parallel_bronze_payment"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/payment"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/payment.ipynb"
       source        = "WORKSPACE"
     }
   }
@@ -38,7 +38,7 @@ resource "databricks_job" "parallel_incremental_pipeline" {
   task {
     task_key = "parallel_bronze_rental"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/rental"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/rental.ipynb"
       source        = "WORKSPACE"
     }
   }
@@ -46,72 +46,99 @@ resource "databricks_job" "parallel_incremental_pipeline" {
   task {
     task_key = "parallel_bronze_service_customer"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/service_customer"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/service_customer.ipynb"
       source        = "WORKSPACE"
     }
   }
 
   task {
-    task_key = "parallel_dim_car_date"
+    task_key = "trigger_parallel_dim_load"
     depends_on { task_key = "parallel_bronze_car_inventory" }
+    depends_on { task_key = "parallel_bronze_geo_staff_store" }
+    depends_on { task_key = "parallel_bronze_payment" }
+    depends_on { task_key = "parallel_bronze_rental" }
+    depends_on { task_key = "parallel_bronze_service_customer" }
+
+    run_job_task {
+      job_id = databricks_job.parallel_dim_load.id
+    }
+  }
+}
+
+resource "databricks_job" "parallel_dim_load" {
+  name = "parallel-dim-load"
+
+  run_as {
+    service_principal_name = data.databricks_current_user.this.user_name
+  }
+
+  task {
+    task_key = "parallel_dim_car_date"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_car_date"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_car_date.ipynb"
       source        = "WORKSPACE"
     }
   }
 
   task {
     task_key = "parallel_dim_customer_equipment"
-    depends_on { task_key = "parallel_bronze_service_customer" }
-    depends_on { task_key = "parallel_bronze_car_inventory" }
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_customer_equipment"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_customer_equipment.ipynb"
       source        = "WORKSPACE"
     }
   }
 
   task {
     task_key = "parallel_dim_manager_staff"
-    depends_on { task_key = "parallel_bronze_geo_staff_store" }
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_manager_staff"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_manager_staff.ipynb"
       source        = "WORKSPACE"
     }
   }
 
   task {
     task_key = "parallel_dim_store_fact_service"
-    depends_on { task_key = "parallel_bronze_geo_staff_store" }
-    depends_on { task_key = "parallel_bronze_service_customer" }
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/fact/dim_store_fact_service"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/fact/dim_store_fact_service.ipynb"
       source        = "WORKSPACE"
     }
   }
 
   task {
     task_key = "parallel_fact_rental"
-    depends_on { task_key = "parallel_bronze_rental" }
-    depends_on { task_key = "parallel_bronze_payment" }
-    depends_on { task_key = "parallel_bronze_car_inventory" }
-    depends_on { task_key = "parallel_bronze_geo_staff_store" }
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/fact/fact_rental"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/fact/fact_rental.ipynb"
       source        = "WORKSPACE"
     }
   }
 
   task {
-    task_key    = "test_business_logic_parallel"
-    max_retries = 0
+    task_key = "trigger_parallel_test"
     depends_on { task_key = "parallel_dim_car_date" }
     depends_on { task_key = "parallel_dim_customer_equipment" }
     depends_on { task_key = "parallel_dim_manager_staff" }
     depends_on { task_key = "parallel_dim_store_fact_service" }
     depends_on { task_key = "parallel_fact_rental" }
 
+    run_job_task {
+      job_id = databricks_job.parallel_test.id
+    }
+  }
+}
+
+resource "databricks_job" "parallel_test" {
+  name = "parallel-test"
+
+  run_as {
+    service_principal_name = data.databricks_current_user.this.user_name
+  }
+
+  task {
+    task_key    = "test_business_logic_parallel"
+    max_retries = 0
+
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/test/business_logc"
+      notebook_path = "${databricks_repo.main.path}/notebooks/test/business_logc.ipynb"
       source        = "WORKSPACE"
     }
   }
@@ -119,14 +146,9 @@ resource "databricks_job" "parallel_incremental_pipeline" {
   task {
     task_key    = "test_data_quality_parallel"
     max_retries = 0
-    depends_on { task_key = "parallel_dim_car_date" }
-    depends_on { task_key = "parallel_dim_customer_equipment" }
-    depends_on { task_key = "parallel_dim_manager_staff" }
-    depends_on { task_key = "parallel_dim_store_fact_service" }
-    depends_on { task_key = "parallel_fact_rental" }
 
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/test/data_quality"
+      notebook_path = "${databricks_repo.main.path}/notebooks/test/data_quality.ipynb"
       source        = "WORKSPACE"
     }
   }
