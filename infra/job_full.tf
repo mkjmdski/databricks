@@ -12,7 +12,8 @@ resource "databricks_job" "full_load_pipeline" {
   #   }
 
   task {
-    task_key = "full_load_dim"
+    task_key    = "full_load_dim"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/full_load/dim"
       source        = "WORKSPACE"
@@ -20,7 +21,8 @@ resource "databricks_job" "full_load_pipeline" {
   }
 
   task {
-    task_key = "full_load_facts"
+    task_key    = "full_load_facts"
+    max_retries = 0
     depends_on {
       task_key = "full_load_dim"
     }

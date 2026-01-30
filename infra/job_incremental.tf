@@ -13,6 +13,7 @@ resource "databricks_job" "incremental_pipeline" {
 
   task {
     task_key = "incremental_load_facts"
+    max_retries = 0
 
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/incremental_load/facts"
@@ -22,6 +23,7 @@ resource "databricks_job" "incremental_pipeline" {
 
   task {
     task_key = "incremental_load_dim"
+    max_retries = 0
     depends_on {
       task_key = "incremental_load_facts"
     }

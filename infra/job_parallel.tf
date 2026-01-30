@@ -12,7 +12,8 @@ resource "databricks_job" "parallel_bronze_load" {
   #   }
 
   task {
-    task_key = "parallel_bronze_car_inventory"
+    task_key    = "parallel_bronze_car_inventory"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/car_inventory"
       source        = "WORKSPACE"
@@ -20,7 +21,8 @@ resource "databricks_job" "parallel_bronze_load" {
   }
 
   task {
-    task_key = "parallel_bronze_geo_staff_store"
+    task_key    = "parallel_bronze_geo_staff_store"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/geo_staff_store"
       source        = "WORKSPACE"
@@ -28,7 +30,8 @@ resource "databricks_job" "parallel_bronze_load" {
   }
 
   task {
-    task_key = "parallel_bronze_payment"
+    task_key    = "parallel_bronze_payment"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/payment"
       source        = "WORKSPACE"
@@ -36,7 +39,8 @@ resource "databricks_job" "parallel_bronze_load" {
   }
 
   task {
-    task_key = "parallel_bronze_rental"
+    task_key    = "parallel_bronze_rental"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/rental"
       source        = "WORKSPACE"
@@ -44,7 +48,8 @@ resource "databricks_job" "parallel_bronze_load" {
   }
 
   task {
-    task_key = "parallel_bronze_service_customer"
+    task_key    = "parallel_bronze_service_customer"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/service_customer"
       source        = "WORKSPACE"
@@ -52,7 +57,8 @@ resource "databricks_job" "parallel_bronze_load" {
   }
 
   task {
-    task_key = "trigger_parallel_dim_load"
+    task_key    = "trigger_parallel_dim_load"
+    max_retries = 0
     depends_on { task_key = "parallel_bronze_car_inventory" }
     depends_on { task_key = "parallel_bronze_geo_staff_store" }
     depends_on { task_key = "parallel_bronze_payment" }
@@ -73,7 +79,8 @@ resource "databricks_job" "parallel_dim_load" {
   }
 
   task {
-    task_key = "parallel_dim_car_date"
+    task_key    = "parallel_dim_car_date"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_car_date"
       source        = "WORKSPACE"
@@ -81,7 +88,8 @@ resource "databricks_job" "parallel_dim_load" {
   }
 
   task {
-    task_key = "parallel_dim_customer_equipment"
+    task_key    = "parallel_dim_customer_equipment"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_customer_equipment"
       source        = "WORKSPACE"
@@ -89,7 +97,8 @@ resource "databricks_job" "parallel_dim_load" {
   }
 
   task {
-    task_key = "parallel_dim_manager_staff"
+    task_key    = "parallel_dim_manager_staff"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_manager_staff"
       source        = "WORKSPACE"
@@ -97,7 +106,8 @@ resource "databricks_job" "parallel_dim_load" {
   }
 
   task {
-    task_key = "parallel_dim_store_fact_service"
+    task_key    = "parallel_dim_store_fact_service"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/parallel/fact/dim_store_fact_service"
       source        = "WORKSPACE"
@@ -105,7 +115,8 @@ resource "databricks_job" "parallel_dim_load" {
   }
 
   task {
-    task_key = "parallel_fact_rental"
+    task_key    = "parallel_fact_rental"
+    max_retries = 0
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/parallel/fact/fact_rental"
       source        = "WORKSPACE"
@@ -113,7 +124,8 @@ resource "databricks_job" "parallel_dim_load" {
   }
 
   task {
-    task_key = "trigger_parallel_test"
+    task_key    = "trigger_parallel_test"
+    max_retries = 0
     depends_on { task_key = "parallel_dim_car_date" }
     depends_on { task_key = "parallel_dim_customer_equipment" }
     depends_on { task_key = "parallel_dim_manager_staff" }
