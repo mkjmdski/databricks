@@ -13,3 +13,22 @@ resource "databricks_secret" "secrets" {
   string_value = each.value
   scope        = databricks_secret_scope.app.id
 }
+
+# filled manually on terraform ui to propagate to databricks secrets from there
+variable "mysql_username" {
+  description = "MySQL username"
+  type        = string
+}
+variable "mysql_password" {
+  description = "MySQL password"
+  type        = string
+  sensitive   = true
+}
+variable "mysql_host" {
+  description = "MySQL host"
+  type        = string
+}
+variable "mysql_db" {
+  description = "MySQL database name"
+  type        = string
+}

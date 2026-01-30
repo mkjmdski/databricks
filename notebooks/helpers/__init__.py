@@ -9,6 +9,9 @@ from .database import create_connection, load_bronze_table, safe_count, write_br
 from .gold_loader import GoldLoader
 from .incremental_pipeline import IncrementalPipeline, TableConfig
 from .logging_config import setup_logger
+from .pipeline_utils import preload_dependencies
+from .pipeline_utils import get_latest_batch_id
+from .pipeline_utils import generate_batch_id
 from .silver_transforms import (
     build_equipment_bridges,
     # Staff hierarchy
@@ -38,6 +41,9 @@ __all__ = [
     "write_bronze_table",
     "write_gold_table",
     "setup_logger",
+    "preload_dependencies",
+    "get_latest_batch_id",
+    "generate_batch_id",
     "WatermarkManager",
     "BronzeLoader",
     "GoldLoader",

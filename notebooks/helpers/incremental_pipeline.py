@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import col
 
 from .bronze_loader import BronzeLoader
 from .gold_loader import GoldLoader
@@ -95,7 +96,12 @@ class IncrementalPipeline:
         self.gold_loader = GoldLoader(spark, batch_id)
         logger.info(f"IncrementalPipeline initialized (batch_id: {batch_id})")
 
-    def load_table(self, config: TableConfig, force_full: bool = False) -> dict[str, any]:
+    def load_table(
+        self,
+        config: TableConfig,
+        force_full: bool = False,
+        bronze_batch_id: str | None = None,
+    ) -> dict[str, any]:
         """
         Run incremental load for a single table.
 
@@ -115,28 +121,45 @@ class IncrementalPipeline:
         logger.info("=" * 70)
 
         try:
-            # Step 1: Load incremental from MySQL
-            df_bronze_incremental = self.bronze_loader.load_incremental(
-                table_name=config.table_name, watermark_column=config.watermark_column, force_full=force_full
-            )
+            if bronze_batch_id:
+                logger.info(
+                    f"Using bronze batch filter for {config.table_name}: _batch_id = {bronze_batch_id}"
+                )
+                df_bronze_incremental = self.spark.table(
+                    f"wheelie.bronze.{config.table_name}"
+                ).filter(col("_batch_id") == bronze_batch_id)
+                row_count = df_bronze_incremental.count()
+                load_type = "BRONZE_BATCH"
+            else:
+                # Step 1: Load incremental from MySQL
+                df_bronze_incremental = self.bronze_loader.load_incremental(
+                    table_name=config.table_name,
+                    watermark_column=config.watermark_column,
+                    force_full=force_full,
+                )
 
-            row_count = df_bronze_incremental.count()
-            load_type = (
-                "FULL"
-                if force_full or not self.bronze_loader.watermark_manager.has_watermark(config.table_name)
-                else "INCREMENTAL"
-            )
+                row_count = df_bronze_incremental.count()
+                load_type = (
+                    "FULL"
+                    if force_full or not self.bronze_loader.watermark_manager.has_watermark(config.table_name)
+                    else "INCREMENTAL"
+                )
 
-            # Step 2: Merge to bronze Delta table
-            self.bronze_loader.merge_to_bronze(
-                df=df_bronze_incremental, table_name=config.table_name, business_key=config.business_key
-            )
+                # Step 2: Merge to bronze Delta table
+                self.bronze_loader.merge_to_bronze(
+                    df=df_bronze_incremental,
+                    table_name=config.table_name,
+                    business_key=config.business_key,
+                )
 
             # Step 3: Apply silver transformations
             if config.silver_transform:
                 logger.info(f"Applying silver transformations for {config.table_name}")
                 # Load current bronze state for transformation
-                df_bronze_current = self.spark.table(f"wheelie.bronze.{config.table_name}")
+                if bronze_batch_id:
+                    df_bronze_current = df_bronze_incremental
+                else:
+                    df_bronze_current = self.spark.table(f"wheelie.bronze.{config.table_name}")
 
                 # Load dependencies if specified
                 if config.dependencies:
@@ -174,13 +197,14 @@ class IncrementalPipeline:
                 tracking_columns=config.tracking_columns,
             )
 
-            # Step 5: Update watermark
-            self.bronze_loader.update_watermark(
-                table_name=config.table_name,
-                df=df_bronze_incremental,
-                watermark_column=config.watermark_column,
-                load_type=load_type,
-            )
+            # Step 5: Update watermark (skip for bronze-only batches)
+            if not bronze_batch_id:
+                self.bronze_loader.update_watermark(
+                    table_name=config.table_name,
+                    df=df_bronze_incremental,
+                    watermark_column=config.watermark_column,
+                    load_type=load_type,
+                )
 
             duration = time.time() - start_time
             logger.info("=" * 70)
@@ -201,7 +225,12 @@ class IncrementalPipeline:
             logger.error(f"FAILED: {config.table_name} after {duration:.2f}s - {str(e)}")
             raise
 
-    def load_tables(self, configs: list[TableConfig], force_full: bool = False) -> list[dict[str, any]]:
+    def load_tables(
+        self,
+        configs: list[TableConfig],
+        force_full: bool = False,
+        bronze_batch_id: str | None = None,
+    ) -> list[dict[str, any]]:
         """
         Run incremental load for multiple tables sequentially.
 
@@ -220,7 +249,11 @@ class IncrementalPipeline:
 
         for config in configs:
             try:
-                result = self.load_table(config, force_full=force_full)
+                result = self.load_table(
+                    config,
+                    force_full=force_full,
+                    bronze_batch_id=bronze_batch_id,
+                )
                 results.append(result)
             except Exception as e:
                 logger.error(f"Failed to load {config.table_name}: {str(e)}")

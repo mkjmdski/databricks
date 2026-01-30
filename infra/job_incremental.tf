@@ -15,7 +15,7 @@ resource "databricks_job" "incremental_pipeline" {
     task_key = "incremental_load_facts"
 
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/incremental_load_facts"
+      notebook_path = "${databricks_repo.main.path}/notebooks/incremental_load/facts"
       source        = "WORKSPACE"
     }
   }
@@ -27,7 +27,7 @@ resource "databricks_job" "incremental_pipeline" {
     }
 
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/incremental_load_dim"
+      notebook_path = "${databricks_repo.main.path}/notebooks/incremental_load/dim"
       source        = "WORKSPACE"
     }
   }
@@ -40,7 +40,7 @@ resource "databricks_job" "incremental_pipeline" {
     }
 
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/test_business_logic"
+      notebook_path = "${databricks_repo.main.path}/notebooks/test/business_logc"
       source        = "WORKSPACE"
     }
   }
@@ -53,7 +53,7 @@ resource "databricks_job" "incremental_pipeline" {
     }
 
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/test_data_quality"
+      notebook_path = "${databricks_repo.main.path}/notebooks/test/data_quality"
       source        = "WORKSPACE"
     }
   }

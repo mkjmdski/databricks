@@ -38,7 +38,7 @@ class BronzeLoader:
         """
         self.spark = spark
         self.dbutils = dbutils
-        self.batch_id = batch_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.batch_id = batch_id or datetime.now().strftime("%Y%m%d%H")
         self.watermark_manager = WatermarkManager(spark)
         self.audit_logger = ChangeAuditLogger(spark, batch_id=self.batch_id)
         logger.info(f"BronzeLoader initialized (batch_id: {self.batch_id})")
@@ -81,7 +81,11 @@ class BronzeLoader:
         df = conn.option("dbtable", query).load()
 
         # Add metadata
-        df_bronze = df.withColumn("_ingestion_ts", current_timestamp()).withColumn("_source", lit("mysql_wheelie"))
+        df_bronze = (
+            df.withColumn("_ingestion_ts", current_timestamp())
+            .withColumn("_source", lit("mysql_wheelie"))
+            .withColumn("_batch_id", lit(self.batch_id))
+        )
 
         row_count = df_bronze.count()
         load_type = "FULL" if watermark is None else "INCREMENTAL"
