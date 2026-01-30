@@ -566,7 +566,7 @@ def build_staff_hierarchy_bridge(staff_bronze: DataFrame, max_depth: int = 10) -
         max_depth: Maximum hierarchy depth to traverse (default: 10)
 
     Returns:
-        Bridge table with staff_key, staff_manager_key, level, manager names
+        Bridge table with staff_key, manager_key, level, and manager names
     """
     logger.info("Building staff hierarchy bridge")
 
@@ -575,16 +575,16 @@ def build_staff_hierarchy_bridge(staff_bronze: DataFrame, max_depth: int = 10) -
         col("staff_id"),
         col("manager_id"),
         xxhash64(col("staff_id")).alias("staff_key"),
-        xxhash64(col("manager_id")).alias("staff_manager_key"),
+        xxhash64(col("manager_id")).alias("manager_key"),
         col("first_name").alias("staff_first_name"),
         col("last_name").alias("staff_last_name"),
     )
 
     # Iteratively build hierarchy paths
     hierarchy = staff_hierarchy.withColumn(
-        "path", when(col("staff_manager_key").isNotNull(), array(col("staff_manager_key"))).otherwise(array())
+        "path", when(col("manager_key").isNotNull(), array(col("manager_key"))).otherwise(array())
     ).withColumn(
-        "manager_keys", when(col("staff_manager_key").isNotNull(), array(col("staff_manager_key"))).otherwise(array())
+        "manager_keys", when(col("manager_key").isNotNull(), array(col("manager_key"))).otherwise(array())
     )
 
     for i in range(1, max_depth + 1):
@@ -594,9 +594,7 @@ def build_staff_hierarchy_bridge(staff_bronze: DataFrame, max_depth: int = 10) -
 
         hierarchy = (
             hierarchy.join(
-                staff_hierarchy.select(
-                    col("staff_key").alias(f"mgr_key_{i}"), col("staff_manager_key").alias(f"next_mgr_key_{i}")
-                ),
+                staff_hierarchy.select(col("staff_key").alias(f"mgr_key_{i}"), col("manager_key").alias(f"next_mgr_key_{i}")),
                 col("last_manager_key") == col(f"mgr_key_{i}"),
                 "left",
             )
@@ -628,21 +626,21 @@ def build_staff_hierarchy_bridge(staff_bronze: DataFrame, max_depth: int = 10) -
             col("staff_key"),
             col("staff_first_name"),
             col("staff_last_name"),
-            posexplode(col("path")).alias("level_idx", "staff_manager_key"),
+            posexplode(col("path")).alias("level_idx", "manager_key"),
         )
         .withColumn("level", col("level_idx") + 1)
         .drop("level_idx")
-        .filter(col("staff_manager_key").isNotNull())
+        .filter(col("manager_key").isNotNull())
     )
 
     # Add manager names to bridge
     bridge_staff_hierarchy = bridge_staff_hierarchy.join(
         staff_bronze.select(
-            xxhash64(col("staff_id")).alias("staff_manager_key"),
-            col("first_name").alias("staff_manager_first_name"),
-            col("last_name").alias("staff_manager_last_name"),
+            xxhash64(col("staff_id")).alias("manager_key"),
+            col("first_name").alias("manager_first_name"),
+            col("last_name").alias("manager_last_name"),
         ),
-        "staff_manager_key",
+        "manager_key",
         "left",
     )
 

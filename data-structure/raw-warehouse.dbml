@@ -299,15 +299,15 @@ Table "bridge_staff_hierarchy" {
   "staff_key" bigint [not null]
   "staff_first_name" varchar(50)
   "staff_last_name" varchar(50)
-  "staff_manager_key" bigint [not null]
-  "staff_manager_first_name" varchar(50)
-  "staff_manager_last_name" varchar(50)
+  "manager_key" bigint [not null]
+  "manager_first_name" varchar(50)
+  "manager_last_name" varchar(50)
   "level" int(5) [not null]
 
   Indexes {
-    (staff_key, staff_manager_key, level) [pk, name: "bridge_staff_hierarchy_PK"]
+    (staff_key, manager_key, level) [pk, name: "bridge_staff_hierarchy_PK"]
     staff_key [name: "bridge_staff_hierarchy_staff_IDX"]
-    staff_manager_key [name: "bridge_staff_hierarchy_manager_IDX"]
+    manager_key [name: "bridge_staff_hierarchy_manager_IDX"]
   }
 }
 
@@ -332,7 +332,7 @@ Ref "fact_rental_to_dim_payment_deadline_date": "dim_payment_deadline_date"."pay
 Ref "fact_service_to_dim_car": "dim_car"."car_key" < "fact_service"."car_key"
 
 Ref "bridge_staff_hierarchy_to_staff": "dim_staff"."staff_key" < "bridge_staff_hierarchy"."staff_key"
-Ref "bridge_staff_hierarchy_to_manager": "dim_manager"."manager_key" < "bridge_staff_hierarchy"."staff_manager_key"
+Ref "bridge_staff_hierarchy_to_manager": "dim_manager"."manager_key" < "bridge_staff_hierarchy"."manager_key"
 
 Ref "bridge_car_equipment_to_car": "dim_car"."car_key" < "bridge_car_equipment"."car_key"
 Ref "bridge_car_equipment_to_group": "bridge_equipment_group_equipment"."equipment_group_key" < "bridge_car_equipment"."equipment_group_key"
