@@ -100,6 +100,26 @@ Table "dim_staff" {
   }
 }
 
+Table "dim_manager" {
+  "manager_key" bigint [pk, not null]
+  "staff_id" int(10) [not null]
+  "store_id" int(10)
+  "staff_first_name" varchar(50)
+  "staff_last_name" varchar(50)
+  "staff_email" varchar(50)
+  "hired_date" date
+  "staff_address" varchar(150)
+  "staff_city" varchar(50)
+  "staff_country" varchar(50)
+  "staff_manager_first_name" varchar(50)
+  "staff_manager_last_name" varchar(50)
+
+  Indexes {
+    staff_id [name: "dim_manager_business_key_IDX", unique]
+    store_id [name: "dim_manager_store_id_IDX"]
+  }
+}
+
 Table "dim_store" {
   "store_key" bigint [pk, not null]
   "store_id" int(10) [not null]
@@ -312,7 +332,7 @@ Ref "fact_rental_to_dim_payment_deadline_date": "dim_payment_deadline_date"."pay
 Ref "fact_service_to_dim_car": "dim_car"."car_key" < "fact_service"."car_key"
 
 Ref "bridge_staff_hierarchy_to_staff": "dim_staff"."staff_key" < "bridge_staff_hierarchy"."staff_key"
-Ref "bridge_staff_hierarchy_to_manager": "dim_staff"."staff_key" < "bridge_staff_hierarchy"."staff_manager_key"
+Ref "bridge_staff_hierarchy_to_manager": "dim_manager"."manager_key" < "bridge_staff_hierarchy"."staff_manager_key"
 
 Ref "bridge_car_equipment_to_car": "dim_car"."car_key" < "bridge_car_equipment"."car_key"
 Ref "bridge_car_equipment_to_group": "bridge_equipment_group_equipment"."equipment_group_key" < "bridge_car_equipment"."equipment_group_key"

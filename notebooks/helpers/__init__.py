@@ -25,6 +25,7 @@ from .silver_transforms import (
     # Fact transformations
     transform_service_fact,
     transform_staff_full_pipeline,
+    transform_manager_full_pipeline,
     transform_store_full_pipeline,
 )
 from .watermark import WatermarkManager
@@ -46,6 +47,7 @@ __all__ = [
     # Silver transforms (full pipelines only - cleaning functions are internal)
     "transform_customer_full_pipeline",
     "transform_staff_full_pipeline",
+    "transform_manager_full_pipeline",
     "transform_store_full_pipeline",
     "transform_car_full_pipeline",
     # Date dimensions

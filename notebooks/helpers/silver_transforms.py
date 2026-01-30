@@ -362,6 +362,36 @@ def transform_staff_full_pipeline(
     return transform_staff_to_gold(staff_bronze, address_with_location)
 
 
+def transform_manager_full_pipeline(
+    staff_bronze: DataFrame, address_bronze: DataFrame, city_bronze: DataFrame, country_bronze: DataFrame
+) -> DataFrame:
+    """
+    Full pipeline: managers subset from staff bronze → silver → gold.
+
+    Returns only employees who are NOT managers (their staff_id is not referenced as manager_id).
+    """
+    address_silver = clean_address_silver(address_bronze)
+    address_with_location = build_address_with_location(address_silver, city_bronze, country_bronze)
+    dim_staff = transform_staff_to_gold(staff_bronze, address_with_location)
+
+    manager_ids = (
+        staff_bronze.select(col("manager_id"))
+        .where(col("manager_id").isNotNull())
+        .distinct()
+        .withColumnRenamed("manager_id", "manager_id_ref")
+    )
+
+    return (
+        dim_staff.alias("staff")
+        .join(
+        manager_ids.alias("mgr"),
+        col("staff.staff_id") == col("mgr.manager_id_ref"),
+        "left_anti",
+    )
+        .withColumnRenamed("staff_key", "manager_key")
+    )
+
+
 def transform_store_full_pipeline(
     store_bronze: DataFrame,
     staff_bronze: DataFrame,
