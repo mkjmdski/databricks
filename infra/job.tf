@@ -47,7 +47,7 @@ resource "databricks_job" "incremental_pipeline" {
   task {
     task_key = "test_data_quality"
     depends_on {
-      task_key = "test_business_logic"
+      task_key = "load_incremental_dim"
     }
 
     notebook_task {

@@ -4,11 +4,12 @@ Handles dimension table updates with appropriate versioning strategies.
 """
 
 import logging
+from functools import reduce
 from datetime import datetime
 
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import current_timestamp, lit
+from pyspark.sql.functions import col, current_timestamp, lit
 
 from .audit import ChangeAuditLogger
 from .database import write_gold_table
@@ -137,8 +138,8 @@ class GoldLoader:
             .withColumn("is_current", lit(True))
         )
 
-        # Build change detection condition
-        change_conditions = [f"target.{col} != source.{col}" for col in tracking_columns]
+        # Build change detection condition (null-safe)
+        change_conditions = [f"NOT (target.{col} <=> source.{col})" for col in tracking_columns]
         change_condition_str = " OR ".join(change_conditions)
 
         # Step 1: Close expired records where tracking columns changed
@@ -149,9 +150,29 @@ class GoldLoader:
             f"target.{business_key} = source.{business_key} AND target.is_current = TRUE AND ({change_condition_str})",
         ).whenMatchedUpdate(set={"is_current": lit(False), "end_date": current_timestamp()}).execute()
 
-        # Step 2: Insert new versions for all source records
-        # This includes both truly new records and new versions of changed records
-        logger.info(f"SCD2: Inserting {df_new.count():,} records (new + changed versions)")
-        write_gold_table(df_new, table_name, mode="append", schema="gold")
+        # Step 2: Insert only new or changed records
+        current_df = (
+            delta_table.toDF()
+            .filter(col("is_current") == True)  # noqa: E712 - Spark column comparison
+            .select(business_key, *tracking_columns)
+            .alias("target")
+        )
+
+        source_df = df_new.alias("source")
+        change_expr = reduce(
+            lambda left, right: left | right,
+            [~col(f"source.{c}").eqNullSafe(col(f"target.{c}")) for c in tracking_columns],
+        )
+
+        df_to_insert = (
+            source_df.join(current_df, on=business_key, how="left")
+            .filter(col(f"target.{business_key}").isNull() | change_expr)
+            .select("source.*")
+        )
+
+        insert_count = df_to_insert.count()
+        logger.info(f"SCD2: Inserting {insert_count:,} records (new + changed versions)")
+        if insert_count > 0:
+            write_gold_table(df_to_insert, table_name, mode="append", schema="gold")
 
         logger.info(f"Gold SCD2 upsert complete: {table_name}")
