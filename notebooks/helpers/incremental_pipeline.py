@@ -131,26 +131,26 @@ class IncrementalPipeline:
                 row_count = df_bronze_incremental.count()
                 load_type = "BRONZE_BATCH"
             else:
-                # Step 1: Load incremental from MySQL
-                df_bronze_incremental = self.bronze_loader.load_incremental(
+            # Step 1: Load incremental from MySQL
+            df_bronze_incremental = self.bronze_loader.load_incremental(
                     table_name=config.table_name,
                     watermark_column=config.watermark_column,
                     force_full=force_full,
-                )
+            )
 
-                row_count = df_bronze_incremental.count()
-                load_type = (
-                    "FULL"
-                    if force_full or not self.bronze_loader.watermark_manager.has_watermark(config.table_name)
-                    else "INCREMENTAL"
-                )
+            row_count = df_bronze_incremental.count()
+            load_type = (
+                "FULL"
+                if force_full or not self.bronze_loader.watermark_manager.has_watermark(config.table_name)
+                else "INCREMENTAL"
+            )
 
-                # Step 2: Merge to bronze Delta table
-                self.bronze_loader.merge_to_bronze(
+            # Step 2: Merge to bronze Delta table
+            self.bronze_loader.merge_to_bronze(
                     df=df_bronze_incremental,
                     table_name=config.table_name,
                     business_key=config.business_key,
-                )
+            )
 
             # Step 3: Apply silver transformations
             if config.silver_transform:
@@ -159,7 +159,7 @@ class IncrementalPipeline:
                 if bronze_batch_id:
                     df_bronze_current = df_bronze_incremental
                 else:
-                    df_bronze_current = self.spark.table(f"wheelie.bronze.{config.table_name}")
+                df_bronze_current = self.spark.table(f"wheelie.bronze.{config.table_name}")
 
                 # Load dependencies if specified
                 if config.dependencies:
@@ -199,12 +199,12 @@ class IncrementalPipeline:
 
             # Step 5: Update watermark (skip for bronze-only batches)
             if not bronze_batch_id:
-                self.bronze_loader.update_watermark(
-                    table_name=config.table_name,
-                    df=df_bronze_incremental,
-                    watermark_column=config.watermark_column,
-                    load_type=load_type,
-                )
+            self.bronze_loader.update_watermark(
+                table_name=config.table_name,
+                df=df_bronze_incremental,
+                watermark_column=config.watermark_column,
+                load_type=load_type,
+            )
 
             duration = time.time() - start_time
             logger.info("=" * 70)
