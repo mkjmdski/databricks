@@ -69,11 +69,13 @@ class BronzeLoader:
         if watermark:
             # Incremental load
             query = f"(SELECT * FROM {table_name} WHERE {watermark_column} > '{watermark}') AS subset"
-            logger.info(f"Incremental query: {watermark_column} > {watermark}")
+            logger.info(
+                f"Incremental filter for {table_name}: {watermark_column} > {watermark} (from watermark table)"
+            )
         else:
             # Full load (first time)
             query = table_name
-            logger.info("First load - fetching all records")
+            logger.info(f"Full load for {table_name}: no watermark found or force_full=True")
 
         # Load data
         df = conn.option("dbtable", query).load()
