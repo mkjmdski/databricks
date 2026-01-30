@@ -730,28 +730,17 @@ def transform_rental_fact(
         .select(col("rental.*"), col("staff.store_id"))
     )
 
-    # Join with inventory to get car_id
-    rental_with_inventory = (
-        rental_with_staff.alias("rental_staff")
-        .join(
-            inventory_bronze.select("inventory_id", "car_id").alias("inv"),
-            col("rental_staff.inventory_id") == col("inv.inventory_id"),
-            "left",
-        )
-        .select(col("rental_staff.*"), col("inv.car_id"))
-    )
-
     # Join with payment
     rental_silver = (
-        rental_with_inventory.alias("rental_inv")
+        rental_with_staff.alias("rental_staff")
         .join(
             payment_bronze.select(col("rental_id"), col("payment_date"), col("amount").alias("payment_amount")).alias(
                 "payment"
             ),
-            col("rental_inv.rental_id") == col("payment.rental_id"),
+            col("rental_staff.rental_id") == col("payment.rental_id"),
             "left",
         )
-        .select(col("rental_inv.*"), col("payment.payment_date"), col("payment.payment_amount"))
+        .select(col("rental_staff.*"), col("payment.payment_date"), col("payment.payment_amount"))
     )
 
     # Build fact table with surrogate keys and calculated columns
@@ -761,7 +750,7 @@ def transform_rental_fact(
             "rental_rate",
             "payment_amount",
             "customer_id",
-            "car_id",
+            "inventory_id",
             "staff_id",
             "store_id",
             "rental_date",
@@ -772,7 +761,7 @@ def transform_rental_fact(
         # Add surrogate keys
         .withColumn("rental_key", xxhash64(col("rental_id")))
         .withColumn("customer_key", xxhash64(col("customer_id")))
-        .withColumn("car_key", xxhash64(col("car_id")))
+        .withColumn("car_key", xxhash64(col("inventory_id")))
         .withColumn("staff_key", xxhash64(col("staff_id")))
         .withColumn("store_key", xxhash64(col("store_id")))
         # Add date surrogate keys (handle nulls)
@@ -789,7 +778,7 @@ def transform_rental_fact(
         .withColumn("rental_duration", datediff(col("return_date"), col("rental_date")))
         .withColumn("payment_delay_duration", datediff(col("payment_date"), col("payment_deadline")))
         # Drop business keys (keep only surrogate keys)
-        .drop("customer_id", "car_id", "staff_id", "store_id", "return_date", "payment_date", "payment_deadline")
+        .drop("customer_id", "inventory_id", "staff_id", "store_id", "return_date", "payment_date", "payment_deadline")
     )
 
     logger.info(f"Rental fact transformed: {fact_rental.count():,} rows")
