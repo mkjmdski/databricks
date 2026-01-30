@@ -368,7 +368,7 @@ def transform_manager_full_pipeline(
     """
     Full pipeline: managers subset from staff bronze → silver → gold.
 
-    Returns only employees who are NOT managers (their staff_id is not referenced as manager_id).
+    Returns only employees who ARE managers (their staff_id is referenced as manager_id).
     """
     address_silver = clean_address_silver(address_bronze)
     address_with_location = build_address_with_location(address_silver, city_bronze, country_bronze)
@@ -386,7 +386,7 @@ def transform_manager_full_pipeline(
         .join(
             manager_ids.alias("mgr"),
             col("staff.staff_id") == col("mgr.manager_id_ref"),
-            "left_anti",
+            "inner",
         )
         .withColumnRenamed("staff_key", "manager_key")
         .withColumnRenamed("staff_first_name", "manager_first_name")

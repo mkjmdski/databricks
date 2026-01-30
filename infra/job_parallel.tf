@@ -147,9 +147,9 @@ resource "databricks_job" "parallel_incremental_pipeline" {
   }
 
   task {
-    task_key = "parallel_role_playing_dates"
+    task_key = "parallel_dim_date"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/role_playing_dates"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_date"
       source        = "WORKSPACE"
     }
   }
@@ -165,7 +165,7 @@ resource "databricks_job" "parallel_incremental_pipeline" {
     depends_on { task_key = "parallel_dim_equipment" }
     depends_on { task_key = "parallel_fact_service" }
     depends_on { task_key = "parallel_fact_rental" }
-    depends_on { task_key = "parallel_role_playing_dates" }
+    depends_on { task_key = "parallel_dim_date" }
 
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/test/business_logc"
@@ -184,7 +184,7 @@ resource "databricks_job" "parallel_incremental_pipeline" {
     depends_on { task_key = "parallel_dim_equipment" }
     depends_on { task_key = "parallel_fact_service" }
     depends_on { task_key = "parallel_fact_rental" }
-    depends_on { task_key = "parallel_role_playing_dates" }
+    depends_on { task_key = "parallel_dim_date" }
 
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/test/data_quality"
