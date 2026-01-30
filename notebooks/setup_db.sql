@@ -1,6 +1,7 @@
 %sql
+-- Reset the catalog by dropping all existing data and objects.
 DROP CATALOG IF EXISTS wheelie CASCADE;
-CREATE CATALOG IF NOT EXISTS wheelie;
+CREATE CATALOG wheelie;
 GRANT ALL PRIVILEGES ON CATALOG wheelie TO `mm151@st.amu.edu.pl`;
 GRANT ALL PRIVILEGES ON CATALOG wheelie TO `sebpie2@st.amu.edu.pl`;
 GRANT ALL PRIVILEGES ON CATALOG wheelie TO `tr32342@st.amu.edu.pl`;

@@ -147,3 +147,45 @@ class BronzeLoader:
             logger.info(f"Watermark updated for {table_name}: {max_watermark}")
         else:
             logger.warning(f"No watermark value found for {table_name} - skipping update")
+
+    def load_full_to_bronze(
+        self,
+        table_name: str,
+        watermark_column: str = "last_update",
+        updated_by: str | None = None,
+    ) -> DataFrame:
+        """
+        Full load for a table and persist to bronze (overwrite).
+
+        Also updates or resets the watermark to keep incremental loads consistent.
+
+        Args:
+            table_name: Source table name in MySQL
+            watermark_column: Column used for watermark tracking
+            updated_by: Optional identifier for watermark updates
+
+        Returns:
+            DataFrame with full data (bronze format)
+        """
+        df = self.load_incremental(table_name, watermark_column=watermark_column, force_full=True)
+        write_bronze_table(df, table_name, mode="overwrite")
+
+        if watermark_column in df.columns:
+            max_watermark_row = df.agg({watermark_column: "max"}).collect()
+            max_watermark = max_watermark_row[0][0] if max_watermark_row else None
+            if max_watermark:
+                row_count = df.count()
+                self.watermark_manager.update_watermark(
+                    table_name=table_name,
+                    watermark_value=max_watermark,
+                    watermark_column=watermark_column,
+                    row_count=row_count,
+                    load_type="FULL",
+                    updated_by=updated_by or f"batch_{self.batch_id}",
+                )
+            else:
+                self.watermark_manager.reset_watermark(table_name)
+        else:
+            self.watermark_manager.reset_watermark(table_name)
+
+        return df
