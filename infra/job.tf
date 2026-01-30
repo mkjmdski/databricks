@@ -33,7 +33,8 @@ resource "databricks_job" "incremental_pipeline" {
   }
 
   task {
-    task_key = "test_business_logic"
+    task_key    = "test_business_logic"
+    max_retries = 0
     depends_on {
       task_key = "load_incremental_dim"
     }
@@ -45,7 +46,8 @@ resource "databricks_job" "incremental_pipeline" {
   }
 
   task {
-    task_key = "test_data_quality"
+    task_key    = "test_data_quality"
+    max_retries = 0
     depends_on {
       task_key = "load_incremental_dim"
     }
