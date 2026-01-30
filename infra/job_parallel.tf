@@ -14,7 +14,7 @@ resource "databricks_job" "parallel_bronze_load" {
   task {
     task_key = "parallel_bronze_car_inventory"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/car_inventory.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/car_inventory"
       source        = "WORKSPACE"
     }
   }
@@ -22,7 +22,7 @@ resource "databricks_job" "parallel_bronze_load" {
   task {
     task_key = "parallel_bronze_geo_staff_store"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/geo_staff_store.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/geo_staff_store"
       source        = "WORKSPACE"
     }
   }
@@ -30,7 +30,7 @@ resource "databricks_job" "parallel_bronze_load" {
   task {
     task_key = "parallel_bronze_payment"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/payment.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/payment"
       source        = "WORKSPACE"
     }
   }
@@ -38,7 +38,7 @@ resource "databricks_job" "parallel_bronze_load" {
   task {
     task_key = "parallel_bronze_rental"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/rental.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/rental"
       source        = "WORKSPACE"
     }
   }
@@ -46,7 +46,7 @@ resource "databricks_job" "parallel_bronze_load" {
   task {
     task_key = "parallel_bronze_service_customer"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/service_customer.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/bronze/service_customer"
       source        = "WORKSPACE"
     }
   }
@@ -75,7 +75,7 @@ resource "databricks_job" "parallel_dim_load" {
   task {
     task_key = "parallel_dim_car_date"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_car_date.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_car_date"
       source        = "WORKSPACE"
     }
   }
@@ -83,7 +83,7 @@ resource "databricks_job" "parallel_dim_load" {
   task {
     task_key = "parallel_dim_customer_equipment"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_customer_equipment.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_customer_equipment"
       source        = "WORKSPACE"
     }
   }
@@ -91,7 +91,7 @@ resource "databricks_job" "parallel_dim_load" {
   task {
     task_key = "parallel_dim_manager_staff"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_manager_staff.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/dim/dim_manager_staff"
       source        = "WORKSPACE"
     }
   }
@@ -99,7 +99,7 @@ resource "databricks_job" "parallel_dim_load" {
   task {
     task_key = "parallel_dim_store_fact_service"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/fact/dim_store_fact_service.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/fact/dim_store_fact_service"
       source        = "WORKSPACE"
     }
   }
@@ -107,7 +107,7 @@ resource "databricks_job" "parallel_dim_load" {
   task {
     task_key = "parallel_fact_rental"
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/fact/fact_rental.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/parallel/fact/fact_rental"
       source        = "WORKSPACE"
     }
   }
@@ -138,7 +138,7 @@ resource "databricks_job" "parallel_test" {
     max_retries = 0
 
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/test/business_logc.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/test/business_logc"
       source        = "WORKSPACE"
     }
   }
@@ -148,7 +148,7 @@ resource "databricks_job" "parallel_test" {
     max_retries = 0
 
     notebook_task {
-      notebook_path = "${databricks_repo.main.path}/notebooks/test/data_quality.ipynb"
+      notebook_path = "${databricks_repo.main.path}/notebooks/test/data_quality"
       source        = "WORKSPACE"
     }
   }
