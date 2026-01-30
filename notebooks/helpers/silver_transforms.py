@@ -55,7 +55,7 @@ def clean_address_silver(address_bronze: DataFrame) -> DataFrame:
 
 
 def clean_customer_silver(customer_bronze: DataFrame) -> DataFrame:
-    """
+    r"""
     Clean customer data: fix email format (lowercase, remove special chars, transliterate accents).
 
     Ensures emails match pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
