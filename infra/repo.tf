@@ -1,9 +1,6 @@
-moved {
-  from = databricks_repo.nutter_in_home
-  to   = databricks_repo.main
-}
+data "databricks_current_user" "this" {}
 
 resource "databricks_repo" "main" {
   url  = "https://github.com/mkjmdski/databricks.git"
-  path = "/Repos/wheelie"
+  path = "/Repos/${data.databricks_current_user.this.user_name}/wheelie"
 }
