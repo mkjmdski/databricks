@@ -11,7 +11,7 @@ resource "databricks_job" "incremental_pipeline" {
     task_key = "load_incremental_facts"
 
     notebook_task {
-      notebook_path = "/Workspace${databricks_repo.nutter_in_home.path}/notebooks/load_incremental_facts.ipynb"
+      notebook_path = "${databricks_repo.nutter_in_home.workspace_path}/notebooks/load_incremental_facts.ipynb"
       source        = "WORKSPACE"
     }
   }
@@ -23,7 +23,7 @@ resource "databricks_job" "incremental_pipeline" {
     }
 
     notebook_task {
-      notebook_path = "/Workspace${databricks_repo.nutter_in_home.path}/notebooks/load_incremental_dim.ipynb"
+      notebook_path = "${databricks_repo.nutter_in_home.workspace_path}/notebooks/load_incremental_dim.ipynb"
       source        = "WORKSPACE"
     }
   }
@@ -35,7 +35,7 @@ resource "databricks_job" "incremental_pipeline" {
     }
 
     notebook_task {
-      notebook_path = "/Workspace${databricks_repo.nutter_in_home.path}/notebooks/test_business_logic.ipynb"
+      notebook_path = "${databricks_repo.nutter_in_home.workspace_path}/notebooks/test_business_logic.ipynb"
       source        = "WORKSPACE"
     }
   }
@@ -47,7 +47,7 @@ resource "databricks_job" "incremental_pipeline" {
     }
 
     notebook_task {
-      notebook_path = "/Workspace${databricks_repo.nutter_in_home.path}/notebooks/test_data_quality.ipynb"
+      notebook_path = "${databricks_repo.nutter_in_home.workspace_path}/notebooks/test_data_quality.ipynb"
       source        = "WORKSPACE"
     }
   }
