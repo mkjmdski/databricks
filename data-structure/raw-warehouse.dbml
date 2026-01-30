@@ -104,15 +104,15 @@ Table "dim_manager" {
   "manager_key" bigint [pk, not null]
   "staff_id" int(10) [not null]
   "store_id" int(10)
-  "staff_first_name" varchar(50)
-  "staff_last_name" varchar(50)
-  "staff_email" varchar(50)
+  "manager_first_name" varchar(50)
+  "manager_last_name" varchar(50)
+  "manager_email" varchar(50)
   "hired_date" date
-  "staff_address" varchar(150)
-  "staff_city" varchar(50)
-  "staff_country" varchar(50)
-  "staff_manager_first_name" varchar(50)
-  "staff_manager_last_name" varchar(50)
+  "manager_address" varchar(150)
+  "manager_city" varchar(50)
+  "manager_country" varchar(50)
+  "manager_manager_first_name" varchar(50)
+  "manager_manager_last_name" varchar(50)
 
   Indexes {
     staff_id [name: "dim_manager_business_key_IDX", unique]

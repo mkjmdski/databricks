@@ -381,15 +381,25 @@ def transform_manager_full_pipeline(
         .withColumnRenamed("manager_id", "manager_id_ref")
     )
 
-    return (
+    dim_manager = (
         dim_staff.alias("staff")
         .join(
-        manager_ids.alias("mgr"),
-        col("staff.staff_id") == col("mgr.manager_id_ref"),
-        "left_anti",
-    )
+            manager_ids.alias("mgr"),
+            col("staff.staff_id") == col("mgr.manager_id_ref"),
+            "left_anti",
+        )
         .withColumnRenamed("staff_key", "manager_key")
+        .withColumnRenamed("staff_first_name", "manager_first_name")
+        .withColumnRenamed("staff_last_name", "manager_last_name")
+        .withColumnRenamed("staff_email", "manager_email")
+        .withColumnRenamed("staff_address", "manager_address")
+        .withColumnRenamed("staff_city", "manager_city")
+        .withColumnRenamed("staff_country", "manager_country")
+        .withColumnRenamed("staff_manager_first_name", "manager_manager_first_name")
+        .withColumnRenamed("staff_manager_last_name", "manager_manager_last_name")
     )
+
+    return dim_manager
 
 
 def transform_store_full_pipeline(
