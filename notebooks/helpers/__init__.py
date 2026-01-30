@@ -5,7 +5,7 @@ Provides common utilities for database connections, logging, and data loading.
 
 from .audit import ChangeAuditLogger
 from .bronze_loader import BronzeLoader
-from .database import create_connection, load_bronze_table, write_bronze_table, write_gold_table
+from .database import create_connection, load_bronze_table, safe_count, write_bronze_table, write_gold_table
 from .gold_loader import GoldLoader
 from .incremental_pipeline import IncrementalPipeline, TableConfig
 from .logging_config import setup_logger
@@ -33,6 +33,7 @@ from .watermark import WatermarkManager
 __all__ = [
     "create_connection",
     "load_bronze_table",
+    "safe_count",
     "write_bronze_table",
     "write_gold_table",
     "setup_logger",

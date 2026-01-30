@@ -4,8 +4,8 @@ Handles dimension table updates with appropriate versioning strategies.
 """
 
 import logging
-from functools import reduce
 from datetime import datetime
+from functools import reduce
 
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession

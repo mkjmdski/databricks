@@ -154,3 +154,22 @@ def write_bronze_table(
     except Exception as e:
         logger.error(f"Failed to write bronze table {table_name}: {str(e)}")
         raise
+
+
+def safe_count(spark, table_name: str, schema: str = "gold", catalog: str = "wheelie") -> str:
+    """
+    Return a formatted row count string for a table if it exists.
+
+    Args:
+        spark: SparkSession instance
+        table_name: Table name without schema/catalog
+        schema: Schema name (default: "gold")
+        catalog: Catalog name (default: "wheelie")
+
+    Returns:
+        String with formatted count or an N/A message if table is missing.
+    """
+    full_name = f"{catalog}.{schema}.{table_name}"
+    if not spark.catalog.tableExists(full_name):
+        return "N/A (table not found)"
+    return f"{spark.table(full_name).count():,}"
