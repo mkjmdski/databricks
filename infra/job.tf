@@ -1,6 +1,10 @@
 resource "databricks_job" "incremental_pipeline" {
   name = "wheelie-incremental-load-and-validate"
 
+  run_as {
+    service_principal_name = data.databricks_current_user.this.user_name
+  }
+
   schedule {
     quartz_cron_expression = "0 5 * * * ?"
     timezone_id            = "UTC"
