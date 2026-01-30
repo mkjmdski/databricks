@@ -16,6 +16,6 @@ removed {
 }
 
 resource "databricks_repo" "nutter_in_home" {
-  url = "https://github.com/mkjmdski/databricks.git"
+  url  = "https://github.com/mkjmdski/databricks.git"
   path = "/Users/a662d958-d69f-42df-b30c-66cb1c96944e/wheelie-repo"
 }
