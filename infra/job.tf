@@ -1,11 +1,3 @@
-data "databricks_spark_version" "latest_lts" {
-  long_term_support = true
-}
-
-data "databricks_node_type" "smallest" {
-  local_disk = true
-}
-
 resource "databricks_job" "incremental_pipeline" {
   name = "wheelie-incremental-load-and-validate"
 
@@ -15,18 +7,8 @@ resource "databricks_job" "incremental_pipeline" {
     pause_status           = "UNPAUSED"
   }
 
-  job_cluster {
-    job_cluster_key = "wheelie_job_cluster"
-    new_cluster {
-      spark_version = data.databricks_spark_version.latest_lts.id
-      node_type_id  = data.databricks_node_type.smallest.id
-      num_workers   = 1
-    }
-  }
-
   task {
-    task_key        = "load_incremental_facts"
-    job_cluster_key = "wheelie_job_cluster"
+    task_key = "load_incremental_facts"
 
     notebook_task {
       notebook_path = "${databricks_repo.nutter_in_home.path}/notebooks/load_incremental_facts.ipynb"
@@ -35,8 +17,7 @@ resource "databricks_job" "incremental_pipeline" {
   }
 
   task {
-    task_key        = "load_incremental_dim"
-    job_cluster_key = "wheelie_job_cluster"
+    task_key = "load_incremental_dim"
     depends_on {
       task_key = "load_incremental_facts"
     }
@@ -48,8 +29,7 @@ resource "databricks_job" "incremental_pipeline" {
   }
 
   task {
-    task_key        = "test_business_logic"
-    job_cluster_key = "wheelie_job_cluster"
+    task_key = "test_business_logic"
     depends_on {
       task_key = "load_incremental_dim"
     }
@@ -61,8 +41,7 @@ resource "databricks_job" "incremental_pipeline" {
   }
 
   task {
-    task_key        = "test_data_quality"
-    job_cluster_key = "wheelie_job_cluster"
+    task_key = "test_data_quality"
     depends_on {
       task_key = "test_business_logic"
     }
