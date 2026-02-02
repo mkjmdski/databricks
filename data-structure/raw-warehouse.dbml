@@ -30,14 +30,14 @@ Table "fact_service" {
   "service_key" bigint [pk, not null]
   "service_id" int(10) [not null]
   "car_key" bigint [not null]
-  "service_date" date [not null]
+  "service_date_key" bigint [not null]
   "service_type" varchar(100) [not null]
   "service_cost" decimal(18,4) [not null]
 
   Indexes {
     service_id [name: "fact_service_business_key_IDX", unique]
     car_key [name: "fact_service_car_IDX"]
-    service_date [name: "fact_service_date_IDX"]
+    service_date_key [name: "fact_service_date_IDX"]
   }
 }
 
@@ -123,7 +123,7 @@ Table "dim_manager" {
 Table "dim_store" {
   "store_key" bigint [pk, not null]
   "store_id" int(10) [not null]
-  "manager_id" int(10)
+  "store_manager_id" int(10)
   "store_manager_first_name" varchar(50)
   "store_manager_last_name" varchar(50)
   "store_address" varchar(150)
@@ -330,6 +330,7 @@ Ref "fact_rental_to_dim_payment_date": "dim_payment_date"."payment_date_key" < "
 Ref "fact_rental_to_dim_payment_deadline_date": "dim_payment_deadline_date"."payment_deadline_date_key" < "fact_rental"."payment_deadline_date_key"
 
 Ref "fact_service_to_dim_car": "dim_car"."car_key" < "fact_service"."car_key"
+Ref "fact_service_to_dim_service_date": "dim_service_date"."service_date_key" < "fact_service"."service_date_key"
 
 Ref "bridge_staff_hierarchy_to_staff": "dim_staff"."staff_key" < "bridge_staff_hierarchy"."staff_key"
 Ref "bridge_staff_hierarchy_to_manager": "dim_manager"."manager_key" < "bridge_staff_hierarchy"."manager_key"
