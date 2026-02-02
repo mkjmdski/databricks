@@ -736,7 +736,9 @@ def transform_service_fact(service_bronze: DataFrame) -> DataFrame:
         service_bronze.select("service_id", "service_date", "service_type", "service_cost", "inventory_id")
         .withColumn("service_key", xxhash64(col("service_id")))
         .withColumn("car_key", xxhash64(col("inventory_id")))
+        .withColumn("service_date_key", xxhash64(col("service_date")))
         .drop("inventory_id")
+        .drop("service_date")
     )
 
 
