@@ -146,8 +146,30 @@ resource "databricks_job" "parallel_test" {
   }
 
   task {
+    task_key    = "apply_gold_fk_constraints_parallel"
+    max_retries = 0
+
+    notebook_task {
+      notebook_path = "${databricks_repo.main.path}/notebooks/99-gold-fk-constraints"
+      source        = "WORKSPACE"
+    }
+  }
+
+  task {
+    task_key    = "test_fk_constraints_parallel"
+    max_retries = 0
+    depends_on { task_key = "apply_gold_fk_constraints_parallel" }
+
+    notebook_task {
+      notebook_path = "${databricks_repo.main.path}/notebooks/test/fk_constraints"
+      source        = "WORKSPACE"
+    }
+  }
+
+  task {
     task_key    = "test_business_logic_parallel"
     max_retries = 0
+    depends_on { task_key = "apply_gold_fk_constraints_parallel" }
 
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/test/business_logc"
@@ -158,6 +180,7 @@ resource "databricks_job" "parallel_test" {
   task {
     task_key    = "test_data_quality_parallel"
     max_retries = 0
+    depends_on { task_key = "apply_gold_fk_constraints_parallel" }
 
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/test/data_quality"

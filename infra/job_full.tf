@@ -33,9 +33,32 @@ resource "databricks_job" "full_load_pipeline" {
   }
 
   task {
+    task_key    = "apply_gold_fk_constraints_full"
+    max_retries = 0
+    depends_on {
+      task_key = "full_load_facts"
+    }
+    notebook_task {
+      notebook_path = "${databricks_repo.main.path}/notebooks/99-gold-fk-constraints"
+      source        = "WORKSPACE"
+    }
+  }
+
+  task {
+    task_key    = "test_fk_constraints_full"
+    max_retries = 0
+    depends_on { task_key = "apply_gold_fk_constraints_full" }
+
+    notebook_task {
+      notebook_path = "${databricks_repo.main.path}/notebooks/test/fk_constraints"
+      source        = "WORKSPACE"
+    }
+  }
+
+  task {
     task_key    = "test_business_logic_full"
     max_retries = 0
-    depends_on { task_key = "full_load_facts" }
+    depends_on { task_key = "apply_gold_fk_constraints_full" }
 
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/test/business_logc"
@@ -46,7 +69,7 @@ resource "databricks_job" "full_load_pipeline" {
   task {
     task_key    = "test_data_quality_full"
     max_retries = 0
-    depends_on { task_key = "full_load_facts" }
+    depends_on { task_key = "apply_gold_fk_constraints_full" }
 
     notebook_task {
       notebook_path = "${databricks_repo.main.path}/notebooks/test/data_quality"

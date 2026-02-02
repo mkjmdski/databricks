@@ -12,7 +12,7 @@ resource "databricks_job" "incremental_pipeline" {
   }
 
   task {
-    task_key = "incremental_load_facts"
+    task_key    = "incremental_load_facts"
     max_retries = 0
 
     notebook_task {
@@ -22,7 +22,7 @@ resource "databricks_job" "incremental_pipeline" {
   }
 
   task {
-    task_key = "incremental_load_dim"
+    task_key    = "incremental_load_dim"
     max_retries = 0
     depends_on {
       task_key = "incremental_load_facts"
@@ -35,10 +35,32 @@ resource "databricks_job" "incremental_pipeline" {
   }
 
   task {
+    task_key    = "apply_gold_fk_constraints_incremental"
+    max_retries = 0
+    depends_on { task_key = "incremental_load_dim" }
+
+    notebook_task {
+      notebook_path = "${databricks_repo.main.path}/notebooks/99-gold-fk-constraints"
+      source        = "WORKSPACE"
+    }
+  }
+
+  task {
+    task_key    = "test_fk_constraints"
+    max_retries = 0
+    depends_on { task_key = "apply_gold_fk_constraints_incremental" }
+
+    notebook_task {
+      notebook_path = "${databricks_repo.main.path}/notebooks/test/fk_constraints"
+      source        = "WORKSPACE"
+    }
+  }
+
+  task {
     task_key    = "test_business_logic"
     max_retries = 0
     depends_on {
-      task_key = "incremental_load_dim"
+      task_key = "apply_gold_fk_constraints_incremental"
     }
 
     notebook_task {
@@ -51,7 +73,7 @@ resource "databricks_job" "incremental_pipeline" {
     task_key    = "test_data_quality"
     max_retries = 0
     depends_on {
-      task_key = "incremental_load_dim"
+      task_key = "apply_gold_fk_constraints_incremental"
     }
 
     notebook_task {
