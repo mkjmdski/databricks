@@ -90,17 +90,14 @@ def write_gold_table(
         table_name: Target table name (without schema prefix)
         mode: Write mode ('overwrite', 'append', 'merge'). Default: 'overwrite'
         display_data: Whether to display DataFrame before writing. Default: False
-        partition_by: Optional list of column names to partition by.
-                      Recommended only for large tables (>100k rows).
-                      Example: ['service_date'] for fact_service
+        partition_by: DEPRECATED - No longer used. Small dataset (<1Tb data) does not benefit from partitioning.
         schema: Target schema name. Default: 'gold'
 
     Raises:
         Exception: If write operation fails
 
     Note:
-        For tables < 100k rows, partitioning may reduce performance.
-        fact_service (16k rows) is borderline - partitioning is optional.
+        Partitioning is not used for this university project due to small data volumes (<1Tb of rows).
     """
     logger.info(f"GOLD: Writing {table_name}")
     try:
@@ -112,10 +109,9 @@ def write_gold_table(
 
         writer = df.write.format("delta").mode(mode).option("overwriteSchema", "true")
 
-        # Apply partitioning if specified
+        # Partitioning removed - not beneficial for small datasets
         if partition_by:
-            logger.info(f"GOLD: Partitioning {table_name} by {partition_by}")
-            writer = writer.partitionBy(*partition_by)
+            logger.warning(f"GOLD: partition_by parameter ignored for {table_name} (not beneficial for <3k rows)")
 
         full_table_name = f"wheelie.{schema}.{table_name}"
         writer.saveAsTable(full_table_name)
